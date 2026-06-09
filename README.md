@@ -1,35 +1,44 @@
 # bluenote-webui
 
-Local-first web UI for BlueNote. It is a Node 18 TypeScript app with a localhost-only server that wraps `@lordierclaw/bluenote-core`; the browser UI talks to that server over HTTP and does not read BlueNote workspaces directly.
+Local-first web UI for BlueNote. It is a Node 16.14-compatible TypeScript app with a localhost-only server that wraps `@lordierclaw/bluenote-core`; the browser UI talks to that server over HTTP and does not read BlueNote workspaces directly.
 
 `bluenote-webui` is intended to be behaviorally compatible with the main workflows in `LordierClaw/bluenote-term`: setup/open a BlueNote root, browse notes and drafts, edit Markdown bodies, save/autosave, search, use a Search Everything-style command palette, and surface safe AI status.
 
 ## Requirements
 
-- Node `>=18`
-- npm
+- Node `>=16.14 <17` or Node `>=18`
+- npm 8 or newer
 - A sibling checkout of `LordierClaw/bluenote-core` at `../bluenote-core` for local development and CI until the core package is published/tagged with built artifacts.
 
 ## Setup
 
 ```bash
 # from ../bluenote-core
-npm ci
+npm ci --include=dev
 npm run build
 
 # from bluenote-webui
-npm ci
+npm ci --include=dev
 npm run dev
 ```
 
 The dev server binds locally. The API defaults to `127.0.0.1:4174`; Vite proxies `/api` to it.
+
+For restricted environments, build once and run the single local server; it serves both the API and built UI:
+
+```bash
+npm run build
+npm run start
+```
+
+Then open `http://127.0.0.1:4174`.
 
 ## Scripts
 
 ```bash
 npm run dev        # local API server + Vite UI
 npm run build      # TypeScript server build + Vite client build
-npm run start      # run built local API server
+npm run start      # run built local server, serving API and static UI
 npm run typecheck
 npm run lint
 npm run test

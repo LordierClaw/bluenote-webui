@@ -18,12 +18,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: LordierClaw/bluenote-core
+          ref: feat/node-16-14-compat
           path: bluenote-core
 
-      - name: Set up Node 18
+      - name: Set up Node 16.14
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 16.14.2
           cache: npm
           cache-dependency-path: |
             bluenote-webui/package-lock.json
@@ -32,12 +33,12 @@ jobs:
       - name: Build bluenote-core
         working-directory: bluenote-core
         run: |
-          npm ci
+          npm ci --include=dev
           npm run build
 
       - name: Install web UI dependencies
         working-directory: bluenote-webui
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Run web UI check
         working-directory: bluenote-webui

@@ -1,4 +1,7 @@
-import { createHttpServer, Router } from "./services/http.js"
+import { createServer as createNodeServer } from "node:http"
+
+import { Router } from "./services/http.js"
+import { serveStaticClient } from "./services/static-client.js"
 import { registerAiRoutes } from "./routes/ai.js"
 import { registerHealthRoutes } from "./routes/health.js"
 import { registerNoteRoutes } from "./routes/notes.js"
@@ -15,7 +18,18 @@ export function createServer(options: ServerOptions = {}) {
   registerWorkspaceRoutes(router)
   registerNoteRoutes(router)
   registerAiRoutes(router)
-  return createHttpServer(router)
+
+  return createNodeServer((request, response) => {
+    const pathname = new URL(request.url ?? "/", `http://${request.headers.host ?? host}`).pathname
+    if (pathname.startsWith("/api/")) {
+      void router.handle(request, response)
+      return
+    }
+
+    if (!serveStaticClient(request, response)) {
+      void router.handle(request, response)
+    }
+  })
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
