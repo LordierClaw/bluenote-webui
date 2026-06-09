@@ -24,6 +24,12 @@ tmp/
 smoke-workspace/
 bluenote-workspace/
 
+# Local agent state and local-only setup notes
+.hermes/
+AGENTS.md
+.node-version
+.npmrc
+
 # OS/editor
 .DS_Store
 .vscode/
