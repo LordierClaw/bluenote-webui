@@ -1,0 +1,44 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out bluenote-webui
+        uses: actions/checkout@v4
+        with:
+          path: bluenote-webui
+
+      - name: Check out bluenote-core sibling
+        uses: actions/checkout@v4
+        with:
+          repository: LordierClaw/bluenote-core
+          path: bluenote-core
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: |
+            bluenote-webui/package-lock.json
+            bluenote-core/package-lock.json
+
+      - name: Build bluenote-core
+        working-directory: bluenote-core
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install web UI dependencies
+        working-directory: bluenote-webui
+        run: npm ci
+
+      - name: Run web UI check
+        working-directory: bluenote-webui
+        run: npm run check
