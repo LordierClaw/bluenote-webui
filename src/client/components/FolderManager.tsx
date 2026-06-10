@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faFileLines, faFilePen, faFolder, faFolderTree, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons"
 import type { FolderView, NoteSummaryView, SearchResultView } from "../../shared/types"
 
 type NoteListItem = NoteSummaryView | SearchResultView
@@ -41,8 +43,8 @@ function noteKindLabel(note: NoteListItem): string {
   return note.folder === "draft" ? "Draft note" : "Normal note"
 }
 
-function noteIcon(note: NoteListItem): string {
-  return note.folder === "draft" ? "✎" : "◇"
+function noteIcon(note: NoteListItem) {
+  return note.folder === "draft" ? faFilePen : faFileLines
 }
 
 export function FolderManager({
@@ -105,13 +107,16 @@ export function FolderManager({
       </div>
       <label className="manager-search">
         <span>Search in folder</span>
-        <input value={query} onChange={(event) => onQuery?.(event.target.value)} placeholder="Title, path, or description" />
+        <div className="manager-search-input">
+          <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
+          <input value={query} onChange={(event) => onQuery?.(event.target.value)} placeholder="Search notes, files, descriptions" />
+        </div>
       </label>
       <div className="navigation-list" role="list" aria-label="Folders and notes">
           {childFolders.map((folder) => (
             <div key={folder.relativePath} role="listitem">
             <button className="navigation-item folder-row" aria-label={`Folder ${folder.name}`} onClick={() => onOpenFolder(folder.relativePath)}>
-              <span className="nav-icon" aria-hidden="true">▣</span>
+              <span className="nav-icon" aria-hidden="true"><FontAwesomeIcon icon={folder.relativePath === "note" || folder.relativePath.startsWith("note/") ? faFolderTree : faFolder} /></span>
               <span className="nav-main">
                 <span className="nav-title">{folder.name}</span>
                 <span className="nav-file">{folder.relativePath}</span>
@@ -123,7 +128,7 @@ export function FolderManager({
           {childNotes.map((note) => (
             <div key={note.relativePath} role="listitem">
             <button className={`navigation-item note-row ${selectedKey === note.key ? "selected" : ""}`} aria-label={`${noteKindLabel(note)} ${note.title}`} onClick={() => onSelectNote(note.key)}>
-              <span className="nav-icon" aria-hidden="true">{noteIcon(note)}</span>
+              <span className="nav-icon" aria-hidden="true"><FontAwesomeIcon icon={noteIcon(note)} /></span>
               <span className="nav-main">
                 <span className="nav-title">{note.title}</span>
                 <span className="nav-file">{note.relativePath || filenameOf(note.relativePath)}</span>

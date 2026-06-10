@@ -475,7 +475,20 @@ export function App() {
             canGoForward={navigationHistoryRef.current.canForward()}
           />
         ) : null}
-        <EditorPane note={selectedNote} body={body} dirty={dirty} saveState={saveState} onBodyChange={(next) => { setBody(next); bodyRef.current = next; setDirty(true); dirtyRef.current = true; setSaveState("Unsaved") }} onSave={() => void save()} onPromote={() => openActionBox("save-draft-as")} />
+        <EditorPane
+          note={selectedNote}
+          body={body}
+          dirty={dirty}
+          saveState={saveState}
+          onBodyChange={(next) => { setBody(next); bodyRef.current = next; setDirty(true); dirtyRef.current = true; setSaveState("Unsaved") }}
+          onSave={() => void save()}
+          onPromote={() => openActionBox("save-draft-as")}
+          onNewNote={() => openActionBox("new-note")}
+          onNewFolder={() => openActionBox("new-folder")}
+          onRename={() => openActionBox("rename-note")}
+          onMove={() => openActionBox("move-note")}
+          onSearch={() => setPalette(true)}
+        />
         {panes.previewVisible ? <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} visible={true} onToggle={panes.togglePreview} /> : null}
       </div>
       <CommandPalette

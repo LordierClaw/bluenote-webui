@@ -9,6 +9,7 @@ import { FolderManager } from "../src/client/components/FolderManager"
 import { PreviewPane } from "../src/client/components/PreviewPane"
 import { ActionDialog } from "../src/client/components/ActionDialog"
 import { AppShell } from "../src/client/components/AppShell"
+import { ShellActionBar } from "../src/client/components/ShellActionBar"
 import { isEditableTarget } from "../src/client/app/App"
 import { createNavigationHistory, noteFolderFromRelativePath } from "../src/client/app/navigationHistory"
 import { useThemePreference } from "../src/client/app/useThemePreference"
@@ -29,6 +30,14 @@ describe("client scaffolding", () => {
       aiStatus={{ status: "disabled" }}
       noteCount={2}
       theme="light"
+      panes={{
+        managerVisible: true,
+        previewVisible: true,
+        managerAutoHidden: false,
+        previewAutoHidden: false,
+        toggleManager: () => undefined,
+        togglePreview: () => undefined,
+      }}
       onToggleTheme={onToggleTheme}
       onPalette={() => undefined}
     >
@@ -173,6 +182,7 @@ describe("client scaffolding", () => {
 
     const manager = screen.getByRole("region", { name: /note navigation/i })
     expect(within(manager).queryByText("Selected note")).not.toBeInTheDocument()
+    expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toHaveAttribute("placeholder", expect.stringMatching(/search notes, files, descriptions/i))
     const navigationList = within(manager).getByRole("list", { name: /folders and notes/i })
     expect(navigationList).toHaveClass("navigation-list")
     expect(within(navigationList).getByRole("button", { name: /folder projects/i })).toHaveTextContent("projects")
@@ -181,6 +191,39 @@ describe("client scaffolding", () => {
     expect(within(navigationList).queryByText(/^Note$/)).not.toBeInTheDocument()
     await userEvent.click(within(navigationList).getByRole("button", { name: /folder projects/i }))
     expect(onOpenFolder).toHaveBeenCalledWith("note/projects")
+  })
+
+  test("shell action bar exposes icon-led note operations", async () => {
+    const onNewNote = vi.fn()
+    const onNewFolder = vi.fn()
+    const onRename = vi.fn()
+    const onMove = vi.fn()
+    const onSearch = vi.fn()
+    const onSave = vi.fn()
+    const onPromote = vi.fn()
+
+    render(
+      <ShellActionBar
+        canMutate
+        canPromoteDraft
+        onNewNote={onNewNote}
+        onNewFolder={onNewFolder}
+        onRename={onRename}
+        onMove={onMove}
+        onSearch={onSearch}
+        onSave={onSave}
+        onPromote={onPromote}
+      />,
+    )
+
+    const actionBar = screen.getByRole("toolbar", { name: /note actions/i })
+    expect(within(actionBar).getByRole("button", { name: /new note/i })).toBeInTheDocument()
+    expect(within(actionBar).getByRole("button", { name: /rename note/i })).toBeEnabled()
+    expect(within(actionBar).getByRole("button", { name: /move note/i })).toBeEnabled()
+    expect(within(actionBar).getByRole("button", { name: /save draft as/i })).toBeEnabled()
+
+    await userEvent.click(within(actionBar).getByRole("button", { name: /search everything/i }))
+    expect(onSearch).toHaveBeenCalledTimes(1)
   })
 
   test("folder manager history controls wire clicks and disabled states", async () => {
