@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { CommandEntry } from "../app/commands"
 import type { NoteSummaryView, SearchResultView } from "../../shared/types"
+import { ActionDialog } from "./ActionDialog"
 
 type PaletteNote = NoteSummaryView | SearchResultView
 
@@ -75,10 +76,9 @@ export function CommandPalette({
   }
 
   return (
-    <div className="palette-backdrop" role="dialog" aria-modal="true">
-      <div className="palette">
+    <ActionDialog open={open} title="Search and commands" onClose={onClose}>
+      <div className="action-form command-palette-form">
         <input autoFocus aria-label="Search Everything" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
-          if (event.key === "Escape") onClose()
           if (event.key === "ArrowDown") setIndex((value) => Math.min(value + 1, Math.max(entries.length - 1, 0)))
           if (event.key === "ArrowUp") setIndex((value) => Math.max(value - 1, 0))
           if (event.key === "Enter") activate()
@@ -93,6 +93,6 @@ export function CommandPalette({
           {entries.length === 0 ? <p className="empty">No commands or notes found.</p> : null}
         </div>
       </div>
-    </div>
+    </ActionDialog>
   )
 }

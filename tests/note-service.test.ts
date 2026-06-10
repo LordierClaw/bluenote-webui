@@ -1,9 +1,10 @@
 import os from "node:os"
 import path from "node:path"
-import { mkdtemp, rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { mkdtemp, mkdir, rm } from "node:fs/promises"
 import { afterEach, describe, expect, test } from "vitest"
 import { initWorkspace, resetWorkspaceForTests } from "../src/server/services/workspace-service.js"
-import { createNote, getNote, listNotes, updateNote, archiveNote } from "../src/server/services/note-service.js"
+import { archiveNote, createFolder, createNote, deleteNote, getNote, getStartupNote, listFolders, listNotes, moveNote, promoteDraft, renameFolder, updateNote } from "../src/server/services/note-service.js"
 
 const roots: string[] = []
 
@@ -34,5 +35,79 @@ describe("note service", () => {
     expect(archived.relativePath).toMatch(/^\.data\/archive\//)
     expect(listNotes({ folder: "all" })).toHaveLength(0)
     expect(listNotes({ folder: "all", query: "changed" })).toHaveLength(0)
+  })
+
+  test("deletes a normal note through the web action", async () => {
+    const root = await setupRoot()
+    const created = createNote({ type: "normal", title: "Delete Me", body: "temporary", destinationFolder: "note" })
+
+    const deleted = deleteNote(created.key)
+
+    expect(deleted).toMatchObject({ deleted: true, relativePath: created.relativePath })
+    expect(existsSync(path.join(root, created.relativePath))).toBe(false)
+    expect(listNotes({ folder: "all" })).toHaveLength(0)
+  })
+
+  test("creates a startup draft when the workspace has no active notes", async () => {
+    await setupRoot()
+
+    const startup = getStartupNote()
+
+    expect(startup.relativePath).toMatch(/^draft\//)
+    expect(startup.folder).toBe("draft")
+    expect(listNotes({ folder: "all" })).toHaveLength(1)
+  })
+
+  test("loads the latest updated active note or draft on startup", async () => {
+    await setupRoot()
+    const normal = createNote({ type: "normal", title: "Older Normal", body: "older", destinationFolder: "note" })
+    const draft = createNote({ type: "draft", body: "newer draft" })
+    updateNote(normal.key, { body: "still older" })
+    const latest = updateNote(draft.key, { body: "latest draft body" })
+
+    expect(getStartupNote()).toMatchObject({ key: latest.key, relativePath: latest.relativePath, body: "latest draft body" })
+  })
+
+  test("startup loads a draft after it is promoted to a normal note", async () => {
+    await setupRoot()
+    const draft = createNote({ type: "draft", body: "draft body promoted from startup" })
+    updateNote(draft.key, { body: "latest promoted body" })
+
+    const promoted = promoteDraft(draft.key, "Promoted Draft", "note")
+
+    expect(promoted.folder).toBe("note")
+    expect(promoted.relativePath).toMatch(/^note\//)
+    expect(promoted.key).not.toBe(draft.key)
+    expect(() => getStartupNote()).not.toThrow()
+    expect(getStartupNote()).toMatchObject({
+      key: promoted.key,
+      relativePath: promoted.relativePath,
+      folder: "note",
+      body: "latest promoted body",
+    })
+  })
+
+  test("lists empty folders and ignores .folder marker files", async () => {
+    const root = await setupRoot()
+    await mkdir(path.join(root, "note", "projects", "alpha"), { recursive: true })
+
+    expect(listFolders().map((folder) => folder.relativePath)).toEqual(expect.arrayContaining(["note", "note/projects", "note/projects/alpha", "draft"]))
+    expect(listNotes({ folder: "all" }).some((note) => note.relativePath.endsWith(".folder"))).toBe(false)
+  })
+
+  test("creates, renames, and moves notes between manager folders", async () => {
+    const root = await setupRoot()
+    const folder = createFolder("note/projects")
+    const created = createNote({ type: "normal", title: "Folder Note", body: "inside folder", destinationFolder: folder.relativePath })
+
+    expect(created.relativePath).toMatch(/^note\/projects\//)
+    expect(existsSync(path.join(root, created.relativePath))).toBe(true)
+
+    const renamed = renameFolder("note/projects", "archive")
+    expect(renamed.relativePath).toBe("note/archive")
+
+    const moved = moveNote(created.key, "note")
+    expect(moved.relativePath).toMatch(/^note\/folder-note/)
+    expect(getNote(created.key).relativePath).toBe(moved.relativePath)
   })
 })

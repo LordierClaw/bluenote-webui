@@ -19,8 +19,15 @@ export interface WorkspaceStatus {
   selected: boolean
   initialized: boolean
   rootPath?: string
+  defaultRootPath?: string
   noteCount?: number
   message?: string
+}
+
+export interface FolderView {
+  relativePath: string
+  name: string
+  noteCount: number
 }
 
 export type NoteFolder = "note" | "draft" | "all"
@@ -32,6 +39,7 @@ export interface NoteSummaryView {
   relativePath: string
   folder: "note" | "draft"
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface NoteDetailView extends NoteSummaryView {

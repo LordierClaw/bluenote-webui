@@ -1,18 +1,36 @@
 import type { ReactNode } from "react"
 import type { AiStatusSummary, WorkspaceStatus } from "../../shared/types"
+import type { ThemePreference } from "../app/useThemePreference"
 
-export function AppShell({ workspace, aiStatus, children, onPalette }: { workspace: WorkspaceStatus; aiStatus?: AiStatusSummary | null; children: ReactNode; onPalette: () => void }) {
+type AppShellWorkspace = Pick<WorkspaceStatus, "initialized" | "rootPath" | "noteCount">
+type AppShellAiStatus = AiStatusSummary | { status: string }
+
+type AppShellProps = {
+  workspace: AppShellWorkspace
+  aiStatus?: AppShellAiStatus | null
+  noteCount?: number
+  theme: ThemePreference
+  children: ReactNode
+  onToggleTheme: () => void
+  onPalette: () => void
+}
+
+export function AppShell({ workspace, aiStatus, noteCount, theme, children, onToggleTheme, onPalette }: AppShellProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
         <div>
           <strong>BlueNote</strong>
-          <span className="muted"> Web UI</span>
+          <span className="muted"> Web</span>
         </div>
         <div className="topbar-meta">
-          <span>{workspace.rootPath}</span>
-          <span className="pill">AI: {aiStatus?.status ?? "unknown"}</span>
-          <button onClick={onPalette}>Search Everything <kbd>Ctrl</kbd>+<kbd>P</kbd></button>
+          <span title={workspace.rootPath}>{workspace.rootPath}</span>
+          <span className="pill">{noteCount ?? workspace.noteCount ?? 0} notes</span>
+          <span className="pill">AI {aiStatus?.status ?? "unknown"}</span>
+          <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} onClick={onToggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
+            {theme === "light" ? "☾" : "☀"}
+          </button>
+          <button className="primary" onClick={onPalette}>Search <kbd>Ctrl</kbd>+<kbd>P</kbd></button>
         </div>
       </header>
       {children}
