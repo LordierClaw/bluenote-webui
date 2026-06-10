@@ -1,12 +1,32 @@
 import type { NoteDetailView } from "../../shared/types"
 import { MarkdownPreview } from "./MarkdownPreview"
 
-export function PreviewPane({ note, visible, onToggle }: { note?: NoteDetailView | null; visible: boolean; onToggle: () => void }) {
-  if (!visible) return <aside className="preview collapsed"><button onClick={onToggle}>Show preview</button></aside>
+type PreviewPaneProps = {
+  note?: NoteDetailView | null
+  visible?: boolean
+  onToggle?: () => void
+}
+
+export function PreviewPane({ note, visible = true, onToggle }: PreviewPaneProps) {
+  if (!visible) {
+    return onToggle ? <aside className="preview collapsed"><button onClick={onToggle}>Show preview</button></aside> : null
+  }
+
   return (
-    <aside className="preview">
-      <div className="pane-header"><strong>Preview</strong><button onClick={onToggle}>Hide</button></div>
-      {note ? <article><h2>{note.title}</h2><p className="row-path">{note.relativePath}</p><MarkdownPreview body={note.body} /></article> : <p className="empty">Select a note to preview it.</p>}
-    </aside>
+    <section className="preview-pane-content">
+      <div className="pane-header preview-pane-header">
+        <strong>Preview</strong>
+        {onToggle ? <button type="button" onClick={onToggle}>Hide</button> : null}
+      </div>
+      {note ? (
+        <article>
+          <h2>{note.title}</h2>
+          <p className="row-path">{note.relativePath}</p>
+          <MarkdownPreview body={note.body} />
+        </article>
+      ) : (
+        <p className="empty">Select a note to preview it.</p>
+      )}
+    </section>
   )
 }

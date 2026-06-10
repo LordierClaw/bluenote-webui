@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 
 const MANAGER_KEY = "bluenote-webui.manager-visible"
-const PREVIEW_KEY = "bluenote-webui.preview-visible"
+const UTILITY_KEY = "bluenote-webui.utility-visible"
+const PREVIEW_KEY = UTILITY_KEY
 const MANAGER_BREAKPOINT = 980
 const PREVIEW_BREAKPOINT = 760
 

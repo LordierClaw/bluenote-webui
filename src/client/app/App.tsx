@@ -15,6 +15,7 @@ import { EditorPane } from "../components/EditorPane"
 import { FolderManager } from "../components/FolderManager"
 import { PreviewPane } from "../components/PreviewPane"
 import { SetupScreen } from "../components/SetupScreen"
+import { UtilityPane, type UtilityTab } from "../components/UtilityPane"
 
 type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "archive-note" | "delete-note" | null
 
@@ -61,6 +62,7 @@ export function App() {
   const [aiQueue, setAiQueue] = useState<AiQueueView | null>(null)
   const [codexAuth, setCodexAuth] = useState<CodexAuthStatusView | null>(null)
   const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [activeUtilityTab, setActiveUtilityTab] = useState<UtilityTab>("preview")
   const bodyRef = useRef(body)
   const dirtyRef = useRef(dirty)
   const selectedKeyRef = useRef<string | null>(null)
@@ -496,6 +498,55 @@ export function App() {
     await refreshAiData()
   }
 
+  const utilityInfoPanel = (
+    <section className="utility-info-panel" aria-label="Note information">
+      <div className="pane-header utility-pane-header">
+        <strong>Info</strong>
+      </div>
+      {selectedNote ? (
+        <div className="utility-info-panel__body">
+          <dl>
+            <div>
+              <dt>Title</dt>
+              <dd>{selectedNote.title}</dd>
+            </div>
+            <div>
+              <dt>Path</dt>
+              <dd>{selectedNote.relativePath}</dd>
+            </div>
+            <div>
+              <dt>Folder</dt>
+              <dd>{selectedNote.folder}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{dirty ? "Unsaved changes" : saveState}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : (
+        <p className="empty">Select a note to inspect its details.</p>
+      )}
+    </section>
+  )
+
+  const utilityAiPanel = (
+    <section className="utility-ai-panel" aria-label="AI workspace summary">
+      <div className="pane-header utility-pane-header">
+        <strong>AI workspace</strong>
+        <button type="button" onClick={() => void openAiDialog()}>Open AI tools</button>
+      </div>
+      <div className="utility-ai-panel__body">
+        <p className="muted">Status: {aiStatus?.status ?? "unknown"}{aiStatus?.provider ? ` · ${aiStatus.provider}` : ""}{aiStatus?.model ? ` · ${aiStatus.model}` : ""}</p>
+        <p className="muted">Pending jobs: {aiStatus?.queue?.pending ?? 0} · Failed jobs: {aiStatus?.queue?.failed ?? 0}</p>
+        <div className="button-row compact">
+          <button type="button" onClick={() => void refreshAiData()}>Refresh AI status</button>
+          <button type="button" onClick={() => void openAiDialog()}>Configure AI</button>
+        </div>
+      </div>
+    </section>
+  )
+
   const commands = buildCommands({
     newNote: () => openActionBox("new-note"),
     quickDraft: () => void createDraft(),
@@ -546,7 +597,15 @@ export function App() {
           onMove={() => openActionBox("move-note")}
           onSearch={() => setPalette(true)}
         />
-        {panes.previewVisible ? <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} visible={true} onToggle={panes.togglePreview} /> : null}
+        {panes.previewVisible ? (
+          <UtilityPane
+            activeTab={activeUtilityTab}
+            onTabChange={setActiveUtilityTab}
+            preview={<PreviewPane note={selectedNote ? { ...selectedNote, body } : null} />}
+            ai={utilityAiPanel}
+            info={utilityInfoPanel}
+          />
+        ) : null}
       </div>
       <CommandPalette
         open={palette}

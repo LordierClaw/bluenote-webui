@@ -20,6 +20,8 @@ type AppShellProps = {
 }
 
 export function AppShell({ workspace, aiStatus, noteCount, theme, panes, children, onToggleTheme, onPalette, onAi }: AppShellProps) {
+  const showWorkspaceViewToolbar = !panes.managerVisible && !panes.previewVisible
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -31,14 +33,22 @@ export function AppShell({ workspace, aiStatus, noteCount, theme, panes, childre
           <span title={workspace.rootPath}>{workspace.rootPath}</span>
           <span className="pill">{noteCount ?? workspace.noteCount ?? 0} notes</span>
           <button type="button" className="pill ai-pill" onClick={onAi}>AI {aiStatus?.status ?? "unknown"}</button>
-          <PaneToggleButtons {...panes} />
+          {!showWorkspaceViewToolbar ? <PaneToggleButtons {...panes} /> : null}
           <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} onClick={onToggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {theme === "light" ? "☾" : "☀"}
           </button>
           <button className="primary" onClick={onPalette}>Search <kbd>Ctrl</kbd>+<kbd>P</kbd></button>
         </div>
       </header>
-      {children}
+      <div className="workspace-frame">
+        {showWorkspaceViewToolbar ? (
+          <div className="workspace-view-toolbar" role="toolbar" aria-label="Workspace view controls">
+            <span className="muted">Restore hidden panes</span>
+            <PaneToggleButtons {...panes} />
+          </div>
+        ) : null}
+        {children}
+      </div>
     </div>
   )
 }
