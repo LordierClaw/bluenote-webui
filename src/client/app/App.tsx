@@ -475,7 +475,17 @@ export function App() {
         <EditorPane note={selectedNote} body={body} dirty={dirty} saveState={saveState} onBodyChange={(next) => { setBody(next); bodyRef.current = next; setDirty(true); dirtyRef.current = true; setSaveState("Unsaved") }} onSave={() => void save()} onPromote={() => openActionBox("save-draft-as")} />
         <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} visible={preview} onToggle={() => setPreview((value) => !value)} />
       </div>
-      <CommandPalette open={palette} commands={commands} notes={notes} onClose={() => setPalette(false)} onSelectNote={(id) => void selectNote(id)} onSearchNotes={(searchQuery) => api.notes({ folder: "all", query: searchQuery })} />
+      <CommandPalette
+        open={palette}
+        commands={commands}
+        notes={notes}
+        folders={folders}
+        onClose={() => setPalette(false)}
+        onSelectNote={(id) => void selectNote(id)}
+        onSelectFolder={(relativePath) => { openFolder(relativePath); }}
+        onSearchNotes={(searchQuery) => api.notes({ folder: "all", query: searchQuery }) as Promise<SearchResultView[]>}
+        onLoadNotePreview={(id) => api.note(id)}
+      />
       <ActionDialog open={Boolean(actionBox)} title={actionTitle(actionBox)} onClose={closeActionBox} busy={submittingAction}>
         <form className="action-form" onSubmit={submitActionBox}>
           {actionBox === "new-note" ? (
