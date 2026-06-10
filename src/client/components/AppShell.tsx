@@ -1,6 +1,8 @@
 import type { ReactNode } from "react"
 import type { AiStatusSummary, WorkspaceStatus } from "../../shared/types"
+import type { ResponsivePanesState } from "../app/useResponsivePanes"
 import type { ThemePreference } from "../app/useThemePreference"
+import { PaneToggleButtons } from "./PaneToggleButtons"
 
 type AppShellWorkspace = Pick<WorkspaceStatus, "initialized" | "rootPath" | "noteCount">
 type AppShellAiStatus = AiStatusSummary | { status: string }
@@ -10,12 +12,13 @@ type AppShellProps = {
   aiStatus?: AppShellAiStatus | null
   noteCount?: number
   theme: ThemePreference
+  panes: ResponsivePanesState
   children: ReactNode
   onToggleTheme: () => void
   onPalette: () => void
 }
 
-export function AppShell({ workspace, aiStatus, noteCount, theme, children, onToggleTheme, onPalette }: AppShellProps) {
+export function AppShell({ workspace, aiStatus, noteCount, theme, panes, children, onToggleTheme, onPalette }: AppShellProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -27,6 +30,7 @@ export function AppShell({ workspace, aiStatus, noteCount, theme, children, onTo
           <span title={workspace.rootPath}>{workspace.rootPath}</span>
           <span className="pill">{noteCount ?? workspace.noteCount ?? 0} notes</span>
           <span className="pill">AI {aiStatus?.status ?? "unknown"}</span>
+          <PaneToggleButtons {...panes} />
           <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} onClick={onToggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {theme === "light" ? "☾" : "☀"}
           </button>

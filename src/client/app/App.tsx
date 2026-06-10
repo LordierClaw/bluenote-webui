@@ -4,6 +4,7 @@ import { api } from "./api"
 import { buildCommands } from "./commands"
 import { createNavigationHistory, noteFolderFromRelativePath, type NavigationTarget } from "./navigationHistory"
 import { useAutosave } from "./useAutosave"
+import { useResponsivePanes } from "./useResponsivePanes"
 import { useThemePreference } from "./useThemePreference"
 import { useWorkspace } from "./useWorkspace"
 import { AppShell } from "../components/AppShell"
@@ -40,6 +41,7 @@ function actionTitle(action: ActionBox): string {
 export function App() {
   const workspaceState = useWorkspace()
   const { theme, toggleTheme } = useThemePreference()
+  const panes = useResponsivePanes()
   const [folder, setFolder] = useState("")
   const [query, setQuery] = useState("")
   const [notes, setNotes] = useState<(NoteSummaryView | SearchResultView)[]>([])
@@ -48,7 +50,6 @@ export function App() {
   const [body, setBody] = useState("")
   const [dirty, setDirty] = useState(false)
   const [saveState, setSaveState] = useState("Idle")
-  const [preview, setPreview] = useState(true)
   const [palette, setPalette] = useState(false)
   const [actionBox, setActionBox] = useState<ActionBox>(null)
   const [actionValue, setActionValue] = useState("")
@@ -445,7 +446,7 @@ export function App() {
     deleteNote: () => openActionBox("delete-note"),
     archiveNote: () => openActionBox("archive-note"),
     rebuild: () => void api.rebuild().then(refreshWorkspaceData),
-    togglePreview: () => setPreview((value) => !value),
+    togglePreview: panes.togglePreview,
     setup: () => void workspaceState.refresh(),
   }, selectedNote)
 
@@ -453,27 +454,29 @@ export function App() {
   if (!workspaceState.workspace?.initialized) return <SetupScreen defaultRootPath={workspaceState.workspace?.defaultRootPath} error={workspaceState.error} onSubmit={workspaceState.open} />
 
   return (
-    <AppShell workspace={workspaceState.workspace} aiStatus={aiStatus} noteCount={notes.length} theme={theme} onToggleTheme={toggleTheme} onPalette={() => setPalette(true)}>
-      <div className="main-grid">
-        <FolderManager
-          currentFolder={folder}
-          selectedKey={selectedNote?.key}
-          folders={folders}
-          notes={notes}
-          query={query}
-          onQuery={setQuery}
-          onOpenFolder={openFolder}
-          onSelectNote={(id) => void selectNote(id)}
-          onCreateFolder={() => openActionBox("new-folder")}
-          onCreateNote={() => openActionBox("new-note")}
-          onQuickDraft={() => void createDraft()}
-          onNavigateBack={() => void goBack()}
-          onNavigateForward={() => void goForward()}
-          canGoBack={navigationHistoryRef.current.canBack()}
-          canGoForward={navigationHistoryRef.current.canForward()}
-        />
+    <AppShell workspace={workspaceState.workspace} aiStatus={aiStatus} noteCount={notes.length} theme={theme} panes={panes} onToggleTheme={toggleTheme} onPalette={() => setPalette(true)}>
+      <div className={`main-grid ${panes.managerVisible ? "manager-visible" : "manager-hidden"} ${panes.previewVisible ? "preview-visible" : "preview-hidden"}`}>
+        {panes.managerVisible ? (
+          <FolderManager
+            currentFolder={folder}
+            selectedKey={selectedNote?.key}
+            folders={folders}
+            notes={notes}
+            query={query}
+            onQuery={setQuery}
+            onOpenFolder={openFolder}
+            onSelectNote={(id) => void selectNote(id)}
+            onCreateFolder={() => openActionBox("new-folder")}
+            onCreateNote={() => openActionBox("new-note")}
+            onQuickDraft={() => void createDraft()}
+            onNavigateBack={() => void goBack()}
+            onNavigateForward={() => void goForward()}
+            canGoBack={navigationHistoryRef.current.canBack()}
+            canGoForward={navigationHistoryRef.current.canForward()}
+          />
+        ) : null}
         <EditorPane note={selectedNote} body={body} dirty={dirty} saveState={saveState} onBodyChange={(next) => { setBody(next); bodyRef.current = next; setDirty(true); dirtyRef.current = true; setSaveState("Unsaved") }} onSave={() => void save()} onPromote={() => openActionBox("save-draft-as")} />
-        <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} visible={preview} onToggle={() => setPreview((value) => !value)} />
+        {panes.previewVisible ? <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} visible={true} onToggle={panes.togglePreview} /> : null}
       </div>
       <CommandPalette
         open={palette}

@@ -99,10 +99,15 @@ kbd { color: var(--blue); font-weight: 700; }
 .topbar-meta > span:first-child { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pill { border: 1px solid var(--line); border-radius: 999px; padding: 0.22rem 0.55rem; background: var(--surface-muted); }
 .theme-toggle { min-width: 2.35rem; font-weight: 800; }
+.pane-toggle-buttons { display: flex; gap: 0.35rem; align-items: center; }
+.pane-toggle-buttons button { white-space: nowrap; }
 .muted { color: var(--muted); }
 .dirty { color: var(--warning); margin-left: 0.4rem; }
 
 .main-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(420px, 0.9fr) minmax(360px, 1fr) minmax(260px, 0.7fr); background: var(--line); gap: 1px; }
+.main-grid.manager-hidden { grid-template-columns: minmax(420px, 1fr) minmax(260px, 0.72fr); }
+.main-grid.preview-hidden { grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 1.05fr); }
+.main-grid.manager-hidden.preview-hidden { grid-template-columns: minmax(0, 1fr); }
 .folder-manager, .editor-pane, .preview { min-height: 0; background: var(--surface); }
 .folder-manager { display: grid; grid-template-rows: auto auto 1fr; }
 .manager-toolbar { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--line); }
