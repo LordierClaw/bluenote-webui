@@ -72,6 +72,67 @@ export interface AiStatusSummary {
   message?: string
 }
 
+export interface AiConfigLoggingView {
+  usage: boolean
+  conversations: boolean
+  results: boolean
+}
+
+export interface AiConfigView {
+  configured: boolean
+  enabled?: boolean
+  provider?: "openai-compatible" | "codex"
+  model?: string
+  baseUrl?: string
+  apiKeyMasked?: string
+  logging?: AiConfigLoggingView
+  maxAttempts?: number
+  outputLanguage?: string
+}
+
+export interface AiQueueJobView {
+  kind: "describe-note"
+  key: string
+  relativePath: string
+  status: "pending" | "running" | "failed"
+  attempts: number
+  lastError?: string | null
+  updatedAt: string
+}
+
+export interface AiQueueView {
+  jobs: AiQueueJobView[]
+}
+
+export interface CodexAuthStatusView {
+  state: "not-configured" | "setup-required" | "authenticated" | "expired" | "invalid"
+  expiresAt?: string
+  issuer?: string
+  message?: string
+  hint?: string
+}
+
+export interface CodexAuthStartView {
+  verificationUrl: string
+  userCode: string
+  intervalSeconds: number
+}
+
+export interface AiDescribeRequest {
+  selector: string
+}
+
+export interface AiProcessQueueRequest {
+  limit?: number
+}
+
+export interface AiProcessQueueResult {
+  applied: number
+  failed: number
+  remaining: number
+  setupBlocked: boolean
+}
+
 export interface CreateNoteRequest {
   type?: "draft" | "normal"
   title?: string
