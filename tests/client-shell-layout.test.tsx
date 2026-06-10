@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import { AppShell } from "../src/client/components/AppShell"
@@ -32,6 +32,7 @@ describe("responsive pane controls", () => {
         panes={panes}
         onToggleTheme={() => undefined}
         onPalette={() => undefined}
+        onAi={() => undefined}
       >
         <div>content</div>
       </AppShell>,
@@ -39,5 +40,35 @@ describe("responsive pane controls", () => {
 
     expect(screen.getByRole("button", { name: /show manager/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /hide preview/i })).toBeInTheDocument()
+  })
+
+  test("manager toggle can reveal the manager when it starts auto-hidden", () => {
+    vi.mocked(useResponsivePanes).mockReturnValueOnce({
+      managerVisible: false,
+      previewVisible: true,
+      managerAutoHidden: true,
+      previewAutoHidden: false,
+      toggleManager: vi.fn(),
+      togglePreview: vi.fn(),
+    })
+
+    const panes = useResponsivePanes()
+    render(
+      <AppShell
+        workspace={{ initialized: true, rootPath: "/tmp/demo", noteCount: 3 }}
+        aiStatus={{ status: "not-configured" }}
+        noteCount={3}
+        theme="dark"
+        panes={panes}
+        onToggleTheme={() => undefined}
+        onPalette={() => undefined}
+        onAi={() => undefined}
+      >
+        <div>content</div>
+      </AppShell>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /show manager/i }))
+    expect(panes.toggleManager).toHaveBeenCalledTimes(1)
   })
 })

@@ -16,7 +16,6 @@ import {
   type AiQueueJob,
   type CodexAuth,
   type CodexAuthStatus,
-  type CodexTextGenerationClientError,
 } from "@lordierclaw/bluenote-core"
 
 import type {
@@ -32,7 +31,7 @@ import type {
 import { getSelectedRootPath } from "./workspace-service.js"
 
 function getRootPath(): string | null {
-  return getSelectedRootPath()
+  return getSelectedRootPath() ?? null
 }
 
 function requireRootPath(): string {
@@ -155,7 +154,7 @@ export function getAiStatus(): AiStatusSummary {
       return { status: "not-configured", message: "AI is not configured for this workspace." }
     }
 
-    const queue = toQueueSummary(rootPath)
+    const queue = toQueueSummary(rootPath) ?? { pending: 0, running: 0, failed: 0 }
     if (config.provider === "codex") {
       const auth = createCodexAuthRepository(rootPath).getStatus({ provider: "codex" })
       if (auth.state !== "authenticated") {
@@ -164,11 +163,14 @@ export function getAiStatus(): AiStatusSummary {
           provider: config.provider,
           model: config.model,
           queue,
-          message: auth.state === "invalid" ? auth.message : auth.hint,
+          message: auth.state === "invalid"
+            ? auth.message
+            : auth.state === "expired"
+              ? auth.hint
+              : undefined,
         }
       }
     }
-
     return {
       status: queue.running > 0 ? "running" : "connected",
       provider: config.provider,

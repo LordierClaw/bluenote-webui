@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
-import type { AiStatusSummary, FolderView, NoteDetailView, NoteSummaryView, SearchResultView } from "../../shared/types"
+import type { AiConfigView, AiQueueView, AiStatusSummary, CodexAuthStatusView, FolderView, NoteDetailView, NoteSummaryView, SearchResultView } from "../../shared/types"
 import { api } from "./api"
 import { buildCommands } from "./commands"
 import { createNavigationHistory, noteFolderFromRelativePath, type NavigationTarget } from "./navigationHistory"
@@ -9,6 +9,7 @@ import { useThemePreference } from "./useThemePreference"
 import { useWorkspace } from "./useWorkspace"
 import { AppShell } from "../components/AppShell"
 import { ActionDialog } from "../components/ActionDialog"
+import { AiWorkspaceDialog } from "../components/AiWorkspaceDialog"
 import { CommandPalette } from "../components/CommandPalette"
 import { EditorPane } from "../components/EditorPane"
 import { FolderManager } from "../components/FolderManager"
@@ -56,6 +57,10 @@ export function App() {
   const [actionDestination, setActionDestination] = useState("note")
   const [submittingAction, setSubmittingAction] = useState(false)
   const [aiStatus, setAiStatus] = useState<AiStatusSummary | null>(null)
+  const [aiConfig, setAiConfig] = useState<AiConfigView | null>(null)
+  const [aiQueue, setAiQueue] = useState<AiQueueView | null>(null)
+  const [codexAuth, setCodexAuth] = useState<CodexAuthStatusView | null>(null)
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
   const bodyRef = useRef(body)
   const dirtyRef = useRef(dirty)
   const selectedKeyRef = useRef<string | null>(null)
@@ -99,9 +104,27 @@ export function App() {
     await Promise.all([loadNotes(), loadFolders()])
   }, [loadFolders, loadNotes])
 
+  const refreshAiData = useCallback(async () => {
+    const [nextStatus, nextConfig, nextQueue, nextCodexAuth] = await Promise.all([
+      api.aiStatus().catch(() => null),
+      api.aiConfig().catch(() => null),
+      api.aiQueue().catch(() => ({ jobs: [] })),
+      api.codexAuthStatus().catch(() => null),
+    ])
+    setAiStatus(nextStatus)
+    setAiConfig(nextConfig)
+    setAiQueue(nextQueue)
+    setCodexAuth(nextCodexAuth)
+  }, [])
+
   useEffect(() => {
     void refreshWorkspaceData()
   }, [refreshWorkspaceData])
+
+  useEffect(() => {
+    if (!workspaceState.workspace?.initialized) return
+    void refreshAiData()
+  }, [refreshAiData, workspaceState.workspace?.initialized])
 
   useEffect(() => {
     if (!workspaceState.workspace?.initialized || startupLoadedRef.current) return
@@ -127,9 +150,9 @@ export function App() {
 
   useEffect(() => {
     if (workspaceState.workspace?.initialized) {
-      void api.aiStatus().then(setAiStatus).catch(() => undefined)
+      void refreshAiData().catch(() => undefined)
     }
-  }, [workspaceState.workspace?.initialized])
+  }, [refreshAiData, workspaceState.workspace?.initialized])
 
   const selectNote = useCallback(async (id: string, record = true): Promise<boolean> => {
     if (dirtyRef.current && !window.confirm("Discard unsaved changes and switch notes?")) return false
@@ -439,6 +462,40 @@ export function App() {
     await selectNote(note.key)
   }
 
+  async function openAiDialog() {
+    setAiDialogOpen(true)
+    await refreshAiData()
+  }
+
+  async function saveAiConfigFromDialog(config: unknown) {
+    await api.saveAiConfig(config)
+    await refreshAiData()
+  }
+
+  async function describeCurrentNoteWithAi() {
+    if (!selectedNote) {
+      throw new Error("Select a note before running AI describe.")
+    }
+    await api.aiDescribe({ selector: selectedNote.key })
+    await Promise.all([refreshWorkspaceData(), refreshAiData()])
+    await selectNote(selectedNote.key, false)
+  }
+
+  async function processAiQueueFromDialog() {
+    const result = await api.aiProcessQueue()
+    await Promise.all([refreshWorkspaceData(), refreshAiData()])
+    return result
+  }
+
+  async function startCodexAuthFromDialog() {
+    return api.startCodexAuth()
+  }
+
+  async function logoutCodexFromDialog() {
+    await api.deleteCodexAuth()
+    await refreshAiData()
+  }
+
   const commands = buildCommands({
     newNote: () => openActionBox("new-note"),
     quickDraft: () => void createDraft(),
@@ -454,7 +511,7 @@ export function App() {
   if (!workspaceState.workspace?.initialized) return <SetupScreen defaultRootPath={workspaceState.workspace?.defaultRootPath} error={workspaceState.error} onSubmit={workspaceState.open} />
 
   return (
-    <AppShell workspace={workspaceState.workspace} aiStatus={aiStatus} noteCount={notes.length} theme={theme} panes={panes} onToggleTheme={toggleTheme} onPalette={() => setPalette(true)}>
+    <AppShell workspace={workspaceState.workspace} aiStatus={aiStatus} noteCount={notes.length} theme={theme} panes={panes} onToggleTheme={toggleTheme} onPalette={() => setPalette(true)} onAi={() => void openAiDialog()}>
       <div className={`main-grid ${panes.managerVisible ? "manager-visible" : "manager-hidden"} ${panes.previewVisible ? "preview-visible" : "preview-hidden"}`}>
         {panes.managerVisible ? (
           <FolderManager
@@ -501,6 +558,20 @@ export function App() {
         onSelectFolder={(relativePath) => { openFolder(relativePath); }}
         onSearchNotes={(searchQuery) => api.notes({ folder: "all", query: searchQuery }) as Promise<SearchResultView[]>}
         onLoadNotePreview={(id) => api.note(id)}
+      />
+      <AiWorkspaceDialog
+        open={aiDialogOpen}
+        onClose={() => setAiDialogOpen(false)}
+        status={aiStatus}
+        config={aiConfig}
+        queue={aiQueue}
+        codexAuth={codexAuth}
+        onRefresh={refreshAiData}
+        onSaveConfig={saveAiConfigFromDialog}
+        onDescribeCurrentNote={describeCurrentNoteWithAi}
+        onProcessQueue={processAiQueueFromDialog}
+        onStartCodexAuth={startCodexAuthFromDialog}
+        onLogoutCodex={logoutCodexFromDialog}
       />
       <ActionDialog open={Boolean(actionBox)} title={actionTitle(actionBox)} onClose={closeActionBox} busy={submittingAction}>
         <form className="action-form" onSubmit={submitActionBox}>

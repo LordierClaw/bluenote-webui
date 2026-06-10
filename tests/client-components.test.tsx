@@ -9,6 +9,7 @@ import { FolderManager } from "../src/client/components/FolderManager"
 import { PreviewPane } from "../src/client/components/PreviewPane"
 import { ActionDialog } from "../src/client/components/ActionDialog"
 import { AppShell } from "../src/client/components/AppShell"
+import { AiWorkspaceDialog } from "../src/client/components/AiWorkspaceDialog"
 import { ShellActionBar } from "../src/client/components/ShellActionBar"
 import { isEditableTarget } from "../src/client/app/App"
 import { createNavigationHistory, noteFolderFromRelativePath } from "../src/client/app/navigationHistory"
@@ -40,6 +41,7 @@ describe("client scaffolding", () => {
       }}
       onToggleTheme={onToggleTheme}
       onPalette={() => undefined}
+      onAi={() => undefined}
     >
       <div />
     </AppShell>)
@@ -224,6 +226,42 @@ describe("client scaffolding", () => {
 
     await userEvent.click(within(actionBar).getByRole("button", { name: /search everything/i }))
     expect(onSearch).toHaveBeenCalledTimes(1)
+  })
+
+  test("ai workspace dialog exposes config, queue, and codex auth actions", async () => {
+    const onClose = vi.fn()
+    const onSaveConfig = vi.fn().mockResolvedValue(undefined)
+    const onRefresh = vi.fn().mockResolvedValue(undefined)
+    const onDescribe = vi.fn().mockResolvedValue(undefined)
+    const onProcessQueue = vi.fn().mockResolvedValue(undefined)
+    const onStartCodexAuth = vi.fn().mockResolvedValue(undefined)
+    const onLogoutCodex = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <AiWorkspaceDialog
+        open
+        onClose={onClose}
+        status={{ status: "auth-required", provider: "codex", model: "gpt-5-codex", queue: { pending: 2, running: 0, failed: 1 } }}
+        config={{ configured: true, enabled: true, provider: "codex", model: "gpt-5-codex", logging: { usage: true, conversations: false, results: true }, maxAttempts: 3, outputLanguage: "English" }}
+        queue={{ jobs: [{ kind: "describe-note", key: "alpha", relativePath: "note/alpha.md", status: "pending", attempts: 0, updatedAt: new Date().toISOString() }] }}
+        codexAuth={{ state: "setup-required" }}
+        onSaveConfig={onSaveConfig}
+        onRefresh={onRefresh}
+        onDescribeCurrentNote={onDescribe}
+        onProcessQueue={onProcessQueue}
+        onStartCodexAuth={onStartCodexAuth}
+        onLogoutCodex={onLogoutCodex}
+      />,
+    )
+
+    const dialog = screen.getByRole("dialog", { name: /ai workspace/i })
+    expect(within(dialog).getByRole("combobox", { name: /provider/i })).toHaveValue("codex")
+    expect(within(dialog).getByRole("button", { name: /refresh ai status/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("button", { name: /start codex auth/i })).toBeInTheDocument()
+    expect(within(dialog).getAllByText(/pending jobs/i).length).toBeGreaterThan(0)
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /process queue/i }))
+    expect(onProcessQueue).toHaveBeenCalledTimes(1)
   })
 
   test("folder manager history controls wire clicks and disabled states", async () => {

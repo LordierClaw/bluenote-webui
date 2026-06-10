@@ -21,8 +21,8 @@ export interface ResponsivePanesState {
 
 export function useResponsivePanes(): ResponsivePanesState {
   const [width, setWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth))
-  const [managerPreference, setManagerPreference] = useState(() => readPreference(MANAGER_KEY, true))
-  const [previewPreference, setPreviewPreference] = useState(() => readPreference(PREVIEW_KEY, true))
+  const [managerPreference, setManagerPreference] = useState(() => readPreference(MANAGER_KEY, typeof window === "undefined" ? true : window.innerWidth >= MANAGER_BREAKPOINT))
+  const [previewPreference, setPreviewPreference] = useState(() => readPreference(PREVIEW_KEY, typeof window === "undefined" ? true : window.innerWidth >= PREVIEW_BREAKPOINT))
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined
@@ -32,8 +32,8 @@ export function useResponsivePanes(): ResponsivePanesState {
   }, [])
 
   return useMemo(() => {
-    const managerVisible = width >= MANAGER_BREAKPOINT ? managerPreference : managerPreference && width >= PREVIEW_BREAKPOINT
-    const previewVisible = width >= PREVIEW_BREAKPOINT ? previewPreference : previewPreference
+    const managerVisible = managerPreference
+    const previewVisible = previewPreference
 
     return {
       managerVisible,

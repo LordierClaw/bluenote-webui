@@ -1,4 +1,20 @@
-import type { AiStatusSummary, CreateNoteRequest, FolderView, NoteDetailView, NoteSummaryView, SearchResultView, UpdateNoteRequest, WorkspaceStatus } from "../../shared/types"
+import type {
+  AiConfigView,
+  AiDescribeRequest,
+  AiProcessQueueRequest,
+  AiProcessQueueResult,
+  AiQueueView,
+  AiStatusSummary,
+  CodexAuthStartView,
+  CodexAuthStatusView,
+  CreateNoteRequest,
+  FolderView,
+  NoteDetailView,
+  NoteSummaryView,
+  SearchResultView,
+  UpdateNoteRequest,
+  WorkspaceStatus,
+} from "../../shared/types"
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -22,6 +38,14 @@ export const api = {
   openWorkspace: (rootPath: string) => request<WorkspaceStatus>("/api/workspace/open", { method: "POST", body: JSON.stringify({ rootPath }) }),
   initWorkspace: (rootPath: string) => request<WorkspaceStatus>("/api/workspace/init", { method: "POST", body: JSON.stringify({ rootPath }) }),
   aiStatus: () => request<AiStatusSummary>("/api/ai/status"),
+  aiConfig: () => request<AiConfigView>("/api/ai/config"),
+  saveAiConfig: (config: unknown) => request<AiConfigView>("/api/ai/config", { method: "POST", body: JSON.stringify(config) }),
+  aiQueue: () => request<AiQueueView>("/api/ai/queue"),
+  aiDescribe: (body: AiDescribeRequest) => request("/api/ai/describe", { method: "POST", body: JSON.stringify(body) }),
+  aiProcessQueue: (body: AiProcessQueueRequest = {}) => request<AiProcessQueueResult>("/api/ai/process-queue", { method: "POST", body: JSON.stringify(body) }),
+  codexAuthStatus: () => request<CodexAuthStatusView>("/api/ai/codex-auth/status"),
+  startCodexAuth: () => request<CodexAuthStartView>("/api/ai/codex-auth/start", { method: "POST" }),
+  deleteCodexAuth: () => request<{ ok: true }>("/api/ai/codex-auth", { method: "DELETE" }),
   folders: () => request<FolderView[]>("/api/folders"),
   createFolder: (relativePath: string) => request<FolderView>("/api/folders", { method: "POST", body: JSON.stringify({ relativePath }) }),
   renameFolder: (relativePath: string, nextName: string) => request<{ previousRelativePath: string; relativePath: string }>("/api/folders/rename", { method: "PATCH", body: JSON.stringify({ relativePath, nextName }) }),

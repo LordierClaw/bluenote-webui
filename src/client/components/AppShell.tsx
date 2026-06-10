@@ -16,9 +16,10 @@ type AppShellProps = {
   children: ReactNode
   onToggleTheme: () => void
   onPalette: () => void
+  onAi: () => void
 }
 
-export function AppShell({ workspace, aiStatus, noteCount, theme, panes, children, onToggleTheme, onPalette }: AppShellProps) {
+export function AppShell({ workspace, aiStatus, noteCount, theme, panes, children, onToggleTheme, onPalette, onAi }: AppShellProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -29,7 +30,7 @@ export function AppShell({ workspace, aiStatus, noteCount, theme, panes, childre
         <div className="topbar-meta">
           <span title={workspace.rootPath}>{workspace.rootPath}</span>
           <span className="pill">{noteCount ?? workspace.noteCount ?? 0} notes</span>
-          <span className="pill">AI {aiStatus?.status ?? "unknown"}</span>
+          <button type="button" className="pill ai-pill" onClick={onAi}>AI {aiStatus?.status ?? "unknown"}</button>
           <PaneToggleButtons {...panes} />
           <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} onClick={onToggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {theme === "light" ? "☾" : "☀"}
