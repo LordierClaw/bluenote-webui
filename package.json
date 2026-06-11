@@ -5,7 +5,11 @@
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
+  "bin": {
+    "bluenote-webui": "./bin/bluenote-webui.js"
+  },
   "files": [
+    "bin",
     "dist",
     "README.md",
     "LICENSE",

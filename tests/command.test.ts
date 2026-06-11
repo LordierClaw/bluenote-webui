@@ -1,7 +1,10 @@
+import http from "node:http"
+
 import { describe, expect, test } from "vitest"
 
 import { runWebCommand, type WebCommandOutput, type WebServerHandle } from "../src/command.js"
 import type { ServerOptions } from "../src/server/index.js"
+import packageJson from "../package.json"
 
 function bufferedOutput() {
   let text = ""
@@ -31,6 +34,34 @@ function fakeServer(onListen: (port: number, host: string) => void): WebServerHa
     },
   }
 }
+
+async function withFakeDaemon<T>(handler: http.RequestListener, run: (url: string) => Promise<T>): Promise<T> {
+  const server = http.createServer(handler)
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve)
+  })
+
+  const address = server.address()
+  if (!address || typeof address === "string") {
+    server.close()
+    throw new Error("fake daemon did not bind to a TCP port")
+  }
+
+  try {
+    return await run(`http://127.0.0.1:${address.port}`)
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()))
+    })
+  }
+}
+
+describe("package bin", () => {
+  test("exposes a stable bluenote-webui executable", () => {
+    expect(packageJson.bin).toEqual({ "bluenote-webui": "./bin/bluenote-webui.js" })
+  })
+})
 
 describe("runWebCommand", () => {
   test("parses host and port args and delegates to server listen", async () => {
@@ -87,6 +118,83 @@ describe("runWebCommand", () => {
     expect(result).toBe(0)
     expect(createServerCalled).toBe(false)
     expect(stdout.text()).toContain("Usage: bluenote web [options]")
+    expect(stdout.text()).toContain("--daemon-url <url>")
+    expect(stdout.text()).toContain("--check-daemon")
+  })
+
+  test("accepts daemon flags without crashing", async () => {
+    const stdout = bufferedOutput()
+    let createServerCalled = false
+
+    const result = await runWebCommand(["--daemon-url", "http://127.0.0.1:9", "--daemon-token", "secret-token", "--help"], {
+      createServer() {
+        createServerCalled = true
+        return fakeServer(() => undefined)
+      },
+      stdout: stdout.output,
+    })
+
+    expect(result).toBe(0)
+    expect(createServerCalled).toBe(false)
+    expect(stdout.text()).toContain("Usage: bluenote web [options]")
+  })
+
+  test("checks daemon health and capabilities in smoke mode", async () => {
+    const stdout = bufferedOutput()
+    const stderr = bufferedOutput()
+    const seenRequests: Array<{ url?: string; authorization?: string }> = []
+
+    const result = await withFakeDaemon((request, response) => {
+      seenRequests.push({ url: request.url, authorization: request.headers.authorization })
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ ok: true }))
+    }, async (daemonUrl) => runWebCommand(["--check-daemon", "--daemon-url", daemonUrl, "--daemon-token", "secret-token"], {
+      stdout: stdout.output,
+      stderr: stderr.output,
+    }))
+
+    expect(result).toBe(0)
+    expect(seenRequests).toEqual([
+      { url: "/health", authorization: "Bearer secret-token" },
+      { url: "/capabilities", authorization: "Bearer secret-token" },
+    ])
+    expect(stdout.text()).toContain("BlueNote daemon check passed")
+    expect(stdout.text()).not.toContain("secret-token")
+    expect(stderr.text()).toBe("")
+  })
+
+  test("checks daemon environment variables in smoke mode", async () => {
+    const stdout = bufferedOutput()
+
+    const result = await withFakeDaemon((_request, response) => {
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ ok: true }))
+    }, async (daemonUrl) => runWebCommand(["--check-daemon"], {
+      env: {
+        BLUENOTE_DAEMON_URL: daemonUrl,
+        BLUENOTE_DAEMON_TOKEN: "env-token",
+      },
+      stdout: stdout.output,
+    }))
+
+    expect(result).toBe(0)
+    expect(stdout.text()).toContain("BlueNote daemon check passed")
+    expect(stdout.text()).not.toContain("env-token")
+  })
+
+  test("fails daemon smoke mode when daemon is unreachable", async () => {
+    const stdout = bufferedOutput()
+    const stderr = bufferedOutput()
+
+    const result = await runWebCommand(["--check-daemon", "--daemon-url", "http://127.0.0.1:9", "--daemon-token", "secret-token"], {
+      stdout: stdout.output,
+      stderr: stderr.output,
+    })
+
+    expect(result).toBe(1)
+    expect(stdout.text()).toBe("")
+    expect(stderr.text()).toContain("BlueNote daemon check failed")
+    expect(stderr.text()).not.toContain("secret-token")
   })
 
   test("reports invalid args without creating a server", async () => {
