@@ -33,6 +33,18 @@ npm run start
 
 Then open `http://127.0.0.1:4174`.
 
+## Public command API
+
+Distribution packages can start the WebUI without importing internal files:
+
+```ts
+import { runWebCommand } from "bluenote-webui"
+
+await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
+```
+
+`runWebCommand(args)` supports `--host`, `--port`, and `--help`. It uses the same defaults as `npm run start`: `BLUENOTE_WEBUI_HOST` or `127.0.0.1` for host, and `PORT`, `BLUENOTE_WEBUI_PORT`, or `4174` for port.
+
 ## Scripts
 
 ```bash

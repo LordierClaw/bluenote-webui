@@ -1,0 +1,133 @@
+import type { ServerOptions } from "./server/index.js"
+
+export interface WebCommandOutput {
+  write(message: string): unknown
+}
+
+export interface WebServerHandle {
+  listen(port: number, hostname: string, listeningListener?: () => void): WebServerHandle
+  once?(eventName: "error", listener: (error: Error) => void): WebServerHandle
+}
+
+export interface WebCommandOptions {
+  createServer?: (options: ServerOptions) => WebServerHandle
+  env?: Partial<Record<string, string | undefined>>
+  stdout?: WebCommandOutput
+  stderr?: WebCommandOutput
+}
+
+interface ParsedWebCommand {
+  help: boolean
+  host: string
+  port: number
+}
+
+const DEFAULT_HOST = "127.0.0.1"
+const DEFAULT_PORT = 4174
+
+function webCommandHelp(): string {
+  return [
+    "Usage: bluenote web [options]",
+    "",
+    "Start the local BlueNote WebUI server.",
+    "",
+    "Options:",
+    "  --host <host>    Host to bind (default: BLUENOTE_WEBUI_HOST or 127.0.0.1)",
+    "  --port <port>    Port to bind (default: PORT, BLUENOTE_WEBUI_PORT, or 4174)",
+    "  --help, -h       Show this help",
+    "",
+  ].join("\n")
+}
+
+function parsePort(value: string, source: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${source} must be an integer port`)
+  }
+
+  const port = Number(value)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`${source} must be between 1 and 65535`)
+  }
+
+  return port
+}
+
+function parseWebCommand(args: string[], env: Partial<Record<string, string | undefined>>): ParsedWebCommand {
+  const parsed: ParsedWebCommand = {
+    help: false,
+    host: env.BLUENOTE_WEBUI_HOST ?? DEFAULT_HOST,
+    port: parsePort(env.PORT ?? env.BLUENOTE_WEBUI_PORT ?? String(DEFAULT_PORT), "port"),
+  }
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+
+    if (arg === "--help" || arg === "-h") {
+      parsed.help = true
+      continue
+    }
+
+    if (arg === "--host") {
+      const host = args[index + 1]
+      if (!host) throw new Error("--host requires a value")
+      parsed.host = host
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith("--host=")) {
+      const host = arg.slice("--host=".length)
+      if (!host) throw new Error("--host requires a value")
+      parsed.host = host
+      continue
+    }
+
+    if (arg === "--port") {
+      const port = args[index + 1]
+      if (!port) throw new Error("--port requires a value")
+      parsed.port = parsePort(port, "--port")
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith("--port=")) {
+      parsed.port = parsePort(arg.slice("--port=".length), "--port")
+      continue
+    }
+
+    throw new Error(`Unknown option: ${arg}`)
+  }
+
+  return parsed
+}
+
+export async function runWebCommand(args: string[], options: WebCommandOptions = {}): Promise<void | number> {
+  const stdout = options.stdout ?? process.stdout
+  const stderr = options.stderr ?? process.stderr
+  const env = options.env ?? process.env
+
+  let parsed: ParsedWebCommand
+  try {
+    parsed = parseWebCommand(args, env)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    stderr.write(`${message}\nRun with --help for usage.\n`)
+    return 1
+  }
+
+  if (parsed.help) {
+    stdout.write(webCommandHelp())
+    return 0
+  }
+
+  const makeServer = options.createServer ?? (await import("./server/index.js")).createServer
+  const server = makeServer({ host: parsed.host })
+
+  await new Promise<void>((resolve, reject) => {
+    server.once?.("error", reject)
+    server.listen(parsed.port, parsed.host, () => {
+      stdout.write(`bluenote-webui server listening on http://${parsed.host}:${parsed.port}\n`)
+      resolve()
+    })
+  })
+}
