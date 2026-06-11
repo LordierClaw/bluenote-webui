@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons"
 import type { NoteDetailView } from "../../shared/types"
 import { MarkdownPreview } from "./MarkdownPreview"
 
@@ -9,24 +11,41 @@ type PreviewPaneProps = {
 
 export function PreviewPane({ note, visible = true, onToggle }: PreviewPaneProps) {
   if (!visible) {
-    return onToggle ? <aside className="preview collapsed"><button onClick={onToggle}>Show preview</button></aside> : null
+    return onToggle ? (
+      <aside className="preview-pane preview-pane--collapsed">
+        <button type="button" className="preview-pane__toggle preview-pane__toggle--collapsed" onClick={onToggle}>
+          <FontAwesomeIcon icon={faEye} aria-hidden="true" />
+          <span>Show preview</span>
+        </button>
+      </aside>
+    ) : null
   }
 
   return (
-    <section className="preview-pane-content">
+    <aside className="preview-pane" aria-label="Markdown preview pane">
       <div className="pane-header preview-pane-header">
         <strong>Preview</strong>
-        {onToggle ? <button type="button" onClick={onToggle}>Hide</button> : null}
+        {onToggle ? (
+          <button type="button" className="preview-pane__toggle" onClick={onToggle}>
+            <FontAwesomeIcon icon={faEyeSlash} aria-hidden="true" />
+            <span>Hide preview</span>
+          </button>
+        ) : null}
       </div>
       {note ? (
-        <article>
-          <h2>{note.title}</h2>
-          <p className="row-path">{note.relativePath}</p>
-          <MarkdownPreview body={note.body} />
-        </article>
+        <div className="preview-pane__body">
+          <article className="preview-pane__article">
+            <header className="preview-pane__context">
+              <p className="preview-pane__context-path">{note.relativePath}</p>
+            </header>
+            <MarkdownPreview body={note.body} />
+          </article>
+        </div>
       ) : (
-        <p className="empty">Select a note to preview it.</p>
+        <div className="preview-pane__empty-state">
+          <p className="empty">Select a note to preview its markdown output.</p>
+        </div>
       )}
-    </section>
+    </aside>
   )
 }

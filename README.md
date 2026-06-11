@@ -55,6 +55,6 @@ npm run check      # typecheck + lint + test + build
 
 ## Shortcuts
 
-- `Ctrl+P` / `Cmd+P`: Search Everything / command palette
+- `Ctrl+K` / `Cmd+K`: Search Everything / command palette
 - `Ctrl+S` / `Cmd+S`: save current note
 - Palette supports new note, quick draft, save, archive, delete, rebuild, preview toggle, and note search entries.

@@ -37,4 +37,23 @@ describe("search everything regressions", () => {
     expect(await screen.findByText("Remote Match")).toBeInTheDocument()
     expect(screen.getByText(/remote content preview/i)).toBeInTheDocument()
   })
+
+  test("shows a guided empty state when nothing matches", async () => {
+    render(
+      <CommandPalette
+        open
+        commands={[]}
+        notes={[]}
+        onClose={() => undefined}
+        onSelectNote={() => undefined}
+        onSearchNotes={async () => []}
+      />,
+    )
+
+    await userEvent.type(screen.getByLabelText(/search everything/i), "missing")
+
+    expect(await screen.findByText(/no results for “missing”/i)).toBeInTheDocument()
+    expect(screen.getByText(/when a match appears, its note body, folder contents, or command details will show here/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/search tips/i)).toHaveTextContent(/commands show shortcuts/i)
+  })
 })

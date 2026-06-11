@@ -8,16 +8,17 @@ import { useResponsivePanes } from "./useResponsivePanes"
 import { useThemePreference } from "./useThemePreference"
 import { useWorkspace } from "./useWorkspace"
 import { AppShell } from "../components/AppShell"
-import { ActionDialog } from "../components/ActionDialog"
 import { AiWorkspaceDialog } from "../components/AiWorkspaceDialog"
 import { CommandPalette } from "../components/CommandPalette"
 import { EditorPane } from "../components/EditorPane"
 import { FolderManager } from "../components/FolderManager"
+import { NoteCommandSurface } from "../components/NoteCommandSurface"
 import { PreviewPane } from "../components/PreviewPane"
 import { SetupScreen } from "../components/SetupScreen"
-import { UtilityPane, type UtilityTab } from "../components/UtilityPane"
 
-type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "archive-note" | "delete-note" | null
+
+type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "rename-folder" | "archive-note" | "delete-note" | null
+type NoteManagerAction = Extract<ActionBox, "move-note" | "rename-note" | "archive-note" | "delete-note">
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -27,6 +28,10 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return tagName === "input" || tagName === "textarea" || tagName === "select"
 }
 
+function isEditorTextareaTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLTextAreaElement
+}
+
 function actionTitle(action: ActionBox): string {
   switch (action) {
     case "new-note": return "New note"
@@ -34,10 +39,40 @@ function actionTitle(action: ActionBox): string {
     case "save-draft-as": return "Save draft as"
     case "move-note": return "Move note"
     case "rename-note": return "Rename note"
+    case "rename-folder": return "Rename folder"
     case "archive-note": return "Archive note"
     case "delete-note": return "Delete note"
     default: return "Action"
   }
+}
+
+function actionDescription(action: ActionBox, note?: NoteDetailView | null): string {
+  switch (action) {
+    case "new-note": return "Create a new note directly from the editor workspace."
+    case "new-folder": return "Add a folder so the current note collection stays organized."
+    case "save-draft-as": return "Promote this draft into the main note tree without leaving the editor."
+    case "move-note": return `Move “${note?.title ?? "this note"}” into another note folder.`
+    case "rename-note": return `Rename “${note?.title ?? "this note"}” while preserving its content and location.`
+    case "rename-folder": return "Rename the current folder without leaving the navigation context."
+    case "archive-note": return `Archive “${note?.title ?? "this note"}” from the current workspace.`
+    case "delete-note": return `Delete “${note?.title ?? "this note"}”. This cannot be undone.`
+    default: return ""
+  }
+}
+
+function actionContext(action: ActionBox, note?: NoteDetailView | null, destination?: string, folderPath?: string): string | undefined {
+  if (action === "new-note") return `Destination: ${destination ?? "note"}`
+  if (action === "new-folder") return `Parent folder: ${destination ?? "note"}`
+  if (action === "save-draft-as") return `Draft path: ${note?.relativePath ?? "draft"}`
+  if (action === "rename-folder") return folderPath
+  if (action === "move-note" || action === "rename-note" || action === "archive-note" || action === "delete-note") {
+    return note?.relativePath
+  }
+  return undefined
+}
+
+function isNoteSpace(relativePath: string): boolean {
+  return relativePath === "" || relativePath === "note" || relativePath.startsWith("note/")
 }
 
 export function App() {
@@ -57,12 +92,13 @@ export function App() {
   const [actionValue, setActionValue] = useState("")
   const [actionDestination, setActionDestination] = useState("note")
   const [submittingAction, setSubmittingAction] = useState(false)
+  const [actionTargetNote, setActionTargetNote] = useState<NoteDetailView | null>(null)
+  const [actionTargetFolder, setActionTargetFolder] = useState<string | null>(null)
   const [aiStatus, setAiStatus] = useState<AiStatusSummary | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfigView | null>(null)
   const [aiQueue, setAiQueue] = useState<AiQueueView | null>(null)
   const [codexAuth, setCodexAuth] = useState<CodexAuthStatusView | null>(null)
   const [aiDialogOpen, setAiDialogOpen] = useState(false)
-  const [activeUtilityTab, setActiveUtilityTab] = useState<UtilityTab>("preview")
   const bodyRef = useRef(body)
   const dirtyRef = useRef(dirty)
   const selectedKeyRef = useRef<string | null>(null)
@@ -149,12 +185,6 @@ export function App() {
         setSaveState(error instanceof Error ? `Startup load failed: ${error.message}` : "Startup load failed")
       })
   }, [refreshHistoryControls, refreshWorkspaceData, workspaceState.workspace?.initialized])
-
-  useEffect(() => {
-    if (workspaceState.workspace?.initialized) {
-      void refreshAiData().catch(() => undefined)
-    }
-  }, [refreshAiData, workspaceState.workspace?.initialized])
 
   const selectNote = useCallback(async (id: string, record = true): Promise<boolean> => {
     if (dirtyRef.current && !window.confirm("Discard unsaved changes and switch notes?")) return false
@@ -247,7 +277,7 @@ export function App() {
   useAutosave(Boolean(selectedNote), dirty, async () => { await save() })
 
   const normalFolders = folders.filter((item) => item.relativePath === "note" || item.relativePath.startsWith("note/"))
-  const defaultDestinationFolder = folder.startsWith("note") ? folder : "note"
+  const defaultDestinationFolder = isNoteSpace(folder) ? folder || "note" : "note"
 
   const closeActionBox = useCallback(({ force = false }: { force?: boolean } = {}) => {
     if (submittingActionRef.current && !force) return
@@ -255,18 +285,28 @@ export function App() {
     setActionValue("")
     setActionDestination(defaultDestinationFolder)
     setSubmittingAction(false)
+    setActionTargetNote(null)
+    setActionTargetFolder(null)
     submittingActionRef.current = false
   }, [defaultDestinationFolder])
 
   const openActionBox = useCallback((action: Exclude<ActionBox, null>) => {
     setActionBox(action)
+    setActionTargetFolder(null)
+    setActionTargetNote(selectedNote)
     if (action === "new-note" || action === "new-folder") {
+      setActionTargetNote(null)
       setActionValue("")
       setActionDestination(defaultDestinationFolder)
       return
     }
     if (action === "save-draft-as" || action === "rename-note") {
       setActionValue(selectedNote?.title ?? "")
+      setActionDestination(defaultDestinationFolder)
+      return
+    }
+    if (action === "rename-folder") {
+      setActionValue(folder.split("/").filter(Boolean).at(-1) ?? "")
       setActionDestination(defaultDestinationFolder)
       return
     }
@@ -277,12 +317,42 @@ export function App() {
     }
     setActionValue("")
     setActionDestination(defaultDestinationFolder)
-  }, [defaultDestinationFolder, selectedNote?.title])
+  }, [defaultDestinationFolder, folder, selectedNote])
+
+  const openManagerNoteAction = useCallback(async (action: NoteManagerAction, noteKey: string) => {
+    setActionTargetFolder(null)
+    const targetNote = selectedNote?.key === noteKey ? selectedNote : await api.note(noteKey)
+    const targetFolder = noteFolderFromRelativePath(targetNote.relativePath)
+    setActionBox(action)
+    setActionTargetNote(targetNote)
+    if (action === "rename-note") {
+      setActionValue(targetNote.title)
+      setActionDestination(isNoteSpace(targetFolder) ? targetFolder : defaultDestinationFolder)
+      return
+    }
+    if (action === "move-note") {
+      setActionValue("")
+      setActionDestination(isNoteSpace(targetFolder) ? targetFolder : defaultDestinationFolder)
+      return
+    }
+    setActionValue("")
+    setActionDestination(defaultDestinationFolder)
+  }, [defaultDestinationFolder, selectedNote])
+
+  const openManagerFolderAction = useCallback((folderPath: string) => {
+    setActionBox("rename-folder")
+    setActionTargetNote(null)
+    setActionTargetFolder(folderPath)
+    setActionValue(folderPath.split("/").filter(Boolean).at(-1) ?? "")
+    setActionDestination(folderPath)
+  }, [])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const key = event.key.toLowerCase()
       const commandKey = event.ctrlKey || event.metaKey
+      const editableTarget = isEditableTarget(event.target)
+      const editorTextareaTarget = isEditorTextareaTarget(event.target)
       if (event.key === "Escape") {
         if (actionBox) {
           event.preventDefault()
@@ -293,7 +363,7 @@ export function App() {
         }
         return
       }
-      if (actionBox || isEditableTarget(event.target)) return
+      if (actionBox) return
       if (commandKey && key === "s" && event.shiftKey) {
         if (selectedNote?.folder === "draft") {
           event.preventDefault()
@@ -301,11 +371,12 @@ export function App() {
         }
         return
       }
+      if (editableTarget && !editorTextareaTarget) return
       if (commandKey && key === "s") {
         event.preventDefault()
         void save()
       }
-      if (commandKey && (key === "p" || key === "k")) {
+      if (commandKey && key === "k") {
         event.preventDefault()
         setPalette(true)
       }
@@ -331,6 +402,19 @@ export function App() {
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [actionBox, closeActionBox, goBack, goForward, openActionBox, palette, save, selectedNote])
+
+  const activeActionNote = actionTargetNote ?? selectedNote
+
+  const ensureTargetNoteClean = useCallback(async (targetNote: NoteDetailView | null | undefined): Promise<boolean> => {
+    if (!targetNote || selectedKeyRef.current !== targetNote.key || !dirtyRef.current) return true
+    if (!window.confirm("Save changes before continuing?")) {
+      setSaveState("Save changes before continuing")
+      return false
+    }
+    const saved = await save()
+    if (!saved) setSaveState("Save changes before continuing")
+    return saved
+  }, [save])
 
   async function submitActionBox(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -392,18 +476,18 @@ export function App() {
         return
       }
       if (actionBox === "move-note") {
-        if (!selectedNote || selectedNote.folder === "draft") return
-        if (!await ensureCleanBeforeMutation()) return
-        const moved = await api.moveNote(selectedNote.key, actionDestination)
+        if (!activeActionNote || activeActionNote.folder === "draft") return
+        if (!await ensureTargetNoteClean(activeActionNote)) return
+        const moved = await api.moveNote(activeActionNote.key, actionDestination)
         shouldCloseActionBox = true
         await refreshWorkspaceData()
-        await selectNote(moved.key)
+        if (selectedKeyRef.current === activeActionNote.key) await selectNote(moved.key)
         return
       }
       if (actionBox === "rename-note") {
-        if (!selectedNote || !value) return
-        const renameKey = selectedNote.key
-        const submittedBody = bodyRef.current
+        if (!activeActionNote || !value) return
+        const renameKey = activeActionNote.key
+        const submittedBody = selectedKeyRef.current === renameKey ? bodyRef.current : activeActionNote.body
         const renamed = await api.updateNote(renameKey, { title: value, body: submittedBody })
         shouldCloseActionBox = true
         if (selectedKeyRef.current === renameKey && bodyRef.current === submittedBody) {
@@ -422,29 +506,42 @@ export function App() {
         await refreshWorkspaceData()
         return
       }
-      if (actionBox === "archive-note") {
-        if (!selectedNote) return
+      if (actionBox === "rename-folder") {
+        if (!actionTargetFolder || !value) return
         if (!await ensureCleanBeforeMutation()) return
-        await api.archiveNote(selectedNote.key)
+        const renamedFolder = await api.renameFolder(actionTargetFolder, value)
         shouldCloseActionBox = true
-        setSelectedNote(null)
-        setBody("")
-        bodyRef.current = ""
-        setDirty(false)
-        dirtyRef.current = false
+        await refreshWorkspaceData()
+        openFolder(renamedFolder.relativePath)
+        return
+      }
+      if (actionBox === "archive-note") {
+        if (!activeActionNote) return
+        if (!await ensureTargetNoteClean(activeActionNote)) return
+        await api.archiveNote(activeActionNote.key)
+        shouldCloseActionBox = true
+        if (selectedKeyRef.current === activeActionNote.key) {
+          setSelectedNote(null)
+          setBody("")
+          bodyRef.current = ""
+          setDirty(false)
+          dirtyRef.current = false
+        }
         await refreshWorkspaceData()
         return
       }
       if (actionBox === "delete-note") {
-        if (!selectedNote) return
-        if (!await ensureCleanBeforeMutation()) return
-        await api.deleteNote(selectedNote.key)
+        if (!activeActionNote) return
+        if (!await ensureTargetNoteClean(activeActionNote)) return
+        await api.deleteNote(activeActionNote.key)
         shouldCloseActionBox = true
-        setSelectedNote(null)
-        setBody("")
-        bodyRef.current = ""
-        setDirty(false)
-        dirtyRef.current = false
+        if (selectedKeyRef.current === activeActionNote.key) {
+          setSelectedNote(null)
+          setBody("")
+          bodyRef.current = ""
+          setDirty(false)
+          dirtyRef.current = false
+        }
         await refreshWorkspaceData()
       }
     } catch (error) {
@@ -498,55 +595,6 @@ export function App() {
     await refreshAiData()
   }
 
-  const utilityInfoPanel = (
-    <section className="utility-info-panel" aria-label="Note information">
-      <div className="pane-header utility-pane-header">
-        <strong>Info</strong>
-      </div>
-      {selectedNote ? (
-        <div className="utility-info-panel__body">
-          <dl>
-            <div>
-              <dt>Title</dt>
-              <dd>{selectedNote.title}</dd>
-            </div>
-            <div>
-              <dt>Path</dt>
-              <dd>{selectedNote.relativePath}</dd>
-            </div>
-            <div>
-              <dt>Folder</dt>
-              <dd>{selectedNote.folder}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>{dirty ? "Unsaved changes" : saveState}</dd>
-            </div>
-          </dl>
-        </div>
-      ) : (
-        <p className="empty">Select a note to inspect its details.</p>
-      )}
-    </section>
-  )
-
-  const utilityAiPanel = (
-    <section className="utility-ai-panel" aria-label="AI workspace summary">
-      <div className="pane-header utility-pane-header">
-        <strong>AI workspace</strong>
-        <button type="button" onClick={() => void openAiDialog()}>Open AI tools</button>
-      </div>
-      <div className="utility-ai-panel__body">
-        <p className="muted">Status: {aiStatus?.status ?? "unknown"}{aiStatus?.provider ? ` · ${aiStatus.provider}` : ""}{aiStatus?.model ? ` · ${aiStatus.model}` : ""}</p>
-        <p className="muted">Pending jobs: {aiStatus?.queue?.pending ?? 0} · Failed jobs: {aiStatus?.queue?.failed ?? 0}</p>
-        <div className="button-row compact">
-          <button type="button" onClick={() => void refreshAiData()}>Refresh AI status</button>
-          <button type="button" onClick={() => void openAiDialog()}>Configure AI</button>
-        </div>
-      </div>
-    </section>
-  )
-
   const commands = buildCommands({
     newNote: () => openActionBox("new-note"),
     quickDraft: () => void createDraft(),
@@ -579,6 +627,12 @@ export function App() {
             onQuickDraft={() => void createDraft()}
             onNavigateBack={() => void goBack()}
             onNavigateForward={() => void goForward()}
+            onHideManager={panes.hideManager}
+            onRenameNote={(noteKey) => { void openManagerNoteAction("rename-note", noteKey) }}
+            onMoveNote={(noteKey) => { void openManagerNoteAction("move-note", noteKey) }}
+            onArchiveNote={(noteKey) => { void openManagerNoteAction("archive-note", noteKey) }}
+            onDeleteNote={(noteKey) => { void openManagerNoteAction("delete-note", noteKey) }}
+            onRenameFolder={(folderPath) => openManagerFolderAction(folderPath)}
             canGoBack={navigationHistoryRef.current.canBack()}
             canGoForward={navigationHistoryRef.current.canForward()}
           />
@@ -597,15 +651,7 @@ export function App() {
           onMove={() => openActionBox("move-note")}
           onSearch={() => setPalette(true)}
         />
-        {panes.previewVisible ? (
-          <UtilityPane
-            activeTab={activeUtilityTab}
-            onTabChange={setActiveUtilityTab}
-            preview={<PreviewPane note={selectedNote ? { ...selectedNote, body } : null} />}
-            ai={utilityAiPanel}
-            info={utilityInfoPanel}
-          />
-        ) : null}
+        {panes.previewVisible ? <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} onToggle={panes.hidePreview} /> : null}
       </div>
       <CommandPalette
         open={palette}
@@ -632,7 +678,14 @@ export function App() {
         onStartCodexAuth={startCodexAuthFromDialog}
         onLogoutCodex={logoutCodexFromDialog}
       />
-      <ActionDialog open={Boolean(actionBox)} title={actionTitle(actionBox)} onClose={closeActionBox} busy={submittingAction}>
+      <NoteCommandSurface
+        open={Boolean(actionBox)}
+        title={actionTitle(actionBox)}
+        description={actionDescription(actionBox, activeActionNote)}
+        context={actionContext(actionBox, activeActionNote, actionDestination, actionTargetFolder ?? undefined)}
+        onClose={closeActionBox}
+        busy={submittingAction}
+      >
         <form className="action-form" onSubmit={submitActionBox}>
           {actionBox === "new-note" ? (
             <label>
@@ -658,6 +711,12 @@ export function App() {
               <input autoFocus value={actionValue} onChange={(event) => setActionValue(event.target.value)} placeholder="Note title" />
             </label>
           ) : null}
+          {actionBox === "rename-folder" ? (
+            <label>
+              <span>Folder name</span>
+              <input autoFocus value={actionValue} onChange={(event) => setActionValue(event.target.value)} placeholder="Folder name" />
+            </label>
+          ) : null}
           {(actionBox === "new-note" || actionBox === "save-draft-as" || actionBox === "move-note") ? (
             <label>
               <span>Destination folder</span>
@@ -668,16 +727,16 @@ export function App() {
               </select>
             </label>
           ) : null}
-          {actionBox === "archive-note" ? <p>Archive “{selectedNote?.title}”?</p> : null}
-          {actionBox === "delete-note" ? <p>Delete “{selectedNote?.title}”? This cannot be undone.</p> : null}
+          {actionBox === "archive-note" ? <p>Archive “{activeActionNote?.title}”?</p> : null}
+          {actionBox === "delete-note" ? <p>Delete “{activeActionNote?.title}”? This cannot be undone.</p> : null}
           <div className="action-buttons">
             <button type="button" onClick={() => closeActionBox()} disabled={submittingAction}>Cancel</button>
-            <button className={actionBox === "delete-note" ? "danger" : "primary"} type="submit" disabled={submittingAction || ((actionBox === "new-note" || actionBox === "new-folder" || actionBox === "save-draft-as" || actionBox === "rename-note") && !actionValue.trim())}>
-              {actionBox === "delete-note" ? "Delete" : actionBox === "archive-note" ? "Archive" : actionBox === "move-note" ? "Move" : "Save"}
+            <button className={actionBox === "delete-note" ? "danger" : "primary"} type="submit" disabled={submittingAction || ((actionBox === "new-note" || actionBox === "new-folder" || actionBox === "save-draft-as" || actionBox === "rename-note" || actionBox === "rename-folder") && !actionValue.trim())}>
+              {actionBox === "delete-note" ? "Delete" : actionBox === "archive-note" ? "Archive" : actionBox === "move-note" ? "Move" : actionBox === "rename-note" || actionBox === "rename-folder" ? "Rename" : actionBox === "save-draft-as" ? "Save to notes" : "Save"}
             </button>
           </div>
         </form>
-      </ActionDialog>
+      </NoteCommandSurface>
     </AppShell>
   )
 }
