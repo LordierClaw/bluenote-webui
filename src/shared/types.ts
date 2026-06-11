@@ -19,8 +19,15 @@ export interface WorkspaceStatus {
   selected: boolean
   initialized: boolean
   rootPath?: string
+  defaultRootPath?: string
   noteCount?: number
   message?: string
+}
+
+export interface FolderView {
+  relativePath: string
+  name: string
+  noteCount: number
 }
 
 export type NoteFolder = "note" | "draft" | "all"
@@ -32,6 +39,7 @@ export interface NoteSummaryView {
   relativePath: string
   folder: "note" | "draft"
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface NoteDetailView extends NoteSummaryView {
@@ -62,6 +70,67 @@ export interface AiStatusSummary {
     failed: number
   }
   message?: string
+}
+
+export interface AiConfigLoggingView {
+  usage: boolean
+  conversations: boolean
+  results: boolean
+}
+
+export interface AiConfigView {
+  configured: boolean
+  enabled?: boolean
+  provider?: "openai-compatible" | "codex"
+  model?: string
+  baseUrl?: string
+  apiKeyMasked?: string
+  logging?: AiConfigLoggingView
+  maxAttempts?: number
+  outputLanguage?: string
+}
+
+export interface AiQueueJobView {
+  kind: "describe-note"
+  key: string
+  relativePath: string
+  status: "pending" | "running" | "failed"
+  attempts: number
+  lastError?: string | null
+  updatedAt: string
+}
+
+export interface AiQueueView {
+  jobs: AiQueueJobView[]
+}
+
+export interface CodexAuthStatusView {
+  state: "not-configured" | "setup-required" | "authenticated" | "expired" | "invalid"
+  expiresAt?: string
+  issuer?: string
+  message?: string
+  hint?: string
+}
+
+export interface CodexAuthStartView {
+  verificationUrl: string
+  userCode: string
+  intervalSeconds: number
+}
+
+export interface AiDescribeRequest {
+  selector: string
+}
+
+export interface AiProcessQueueRequest {
+  limit?: number
+}
+
+export interface AiProcessQueueResult {
+  applied: number
+  failed: number
+  remaining: number
+  setupBlocked: boolean
 }
 
 export interface CreateNoteRequest {
