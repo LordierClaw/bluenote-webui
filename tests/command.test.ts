@@ -156,6 +156,27 @@ describe("runWebCommand", () => {
     expect(stdout.text()).toContain("Usage: bluenote web [options]")
   })
 
+  test("starts the server without probing daemon when daemon URL is provided for normal launches", async () => {
+    const stdout = bufferedOutput()
+    let createdOptions: ServerOptions | undefined
+    const listens: Array<{ port: number; host: string }> = []
+
+    const result = await runWebCommand(["--daemon-url", "http://127.0.0.1:9", "--daemon-token", "secret-token"], {
+      createServer(options) {
+        createdOptions = options
+        return fakeServer((port, host) => listens.push({ port, host }))
+      },
+      env: {},
+      stdout: stdout.output,
+    })
+
+    expect(result).toBeUndefined()
+    expect(createdOptions).toEqual({ host: "127.0.0.1" })
+    expect(listens).toEqual([{ port: 4174, host: "127.0.0.1" }])
+    expect(stdout.text()).toContain("bluenote-webui server listening")
+    expect(stdout.text()).not.toContain("secret-token")
+  })
+
   test("checks daemon health and capabilities in smoke mode", async () => {
     const stdout = bufferedOutput()
     const stderr = bufferedOutput()

@@ -232,7 +232,7 @@ export async function runWebCommand(args: string[], options: WebCommandOptions =
     return 0
   }
 
-  if (parsed.checkDaemon || parsed.daemonUrl) {
+  if (parsed.checkDaemon) {
     try {
       await checkDaemon(parsed)
     } catch (error) {
@@ -242,9 +242,7 @@ export async function runWebCommand(args: string[], options: WebCommandOptions =
     }
 
     stdout.write("BlueNote daemon check passed\n")
-    if (parsed.checkDaemon) {
-      return 0
-    }
+    return 0
   }
 
   const makeServer = options.createServer ?? (await import("./server/index.js")).createServer
