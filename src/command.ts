@@ -1,6 +1,16 @@
 import type { ServerOptions } from "./server/index.js"
 import http from "node:http"
 import https from "node:https"
+import { createRequire } from "node:module"
+
+const require = createRequire(import.meta.url)
+function readPackageVersion(): string {
+  try {
+    return (require("../package.json") as { version: string }).version
+  } catch {
+    return (require("../../package.json") as { version: string }).version
+  }
+}
 
 export interface WebCommandOutput {
   write(message: string): unknown
@@ -25,6 +35,7 @@ interface ParsedWebCommand {
   help: boolean
   host: string
   port: number
+  version: boolean
 }
 
 const DEFAULT_HOST = "127.0.0.1"
@@ -68,6 +79,7 @@ function parseWebCommand(args: string[], env: Partial<Record<string, string | un
     help: false,
     host: env.BLUENOTE_WEBUI_HOST ?? DEFAULT_HOST,
     port: parsePort(env.PORT ?? env.BLUENOTE_WEBUI_PORT ?? String(DEFAULT_PORT), "port"),
+    version: false,
   }
 
   for (let index = 0; index < args.length; index += 1) {
@@ -75,6 +87,11 @@ function parseWebCommand(args: string[], env: Partial<Record<string, string | un
 
     if (arg === "--help" || arg === "-h") {
       parsed.help = true
+      continue
+    }
+
+    if (arg === "--version" || arg === "-v") {
+      parsed.version = true
       continue
     }
 
@@ -207,6 +224,11 @@ export async function runWebCommand(args: string[], options: WebCommandOptions =
 
   if (parsed.help) {
     stdout.write(webCommandHelp())
+    return 0
+  }
+
+  if (parsed.version) {
+    stdout.write(`${readPackageVersion()}\n`)
     return 0
   }
 

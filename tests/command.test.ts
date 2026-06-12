@@ -122,6 +122,23 @@ describe("runWebCommand", () => {
     expect(stdout.text()).toContain("--check-daemon")
   })
 
+  test("prints version without creating a server", async () => {
+    const stdout = bufferedOutput()
+    let createServerCalled = false
+
+    const result = await runWebCommand(["--version"], {
+      createServer() {
+        createServerCalled = true
+        return fakeServer(() => undefined)
+      },
+      stdout: stdout.output,
+    })
+
+    expect(result).toBe(0)
+    expect(createServerCalled).toBe(false)
+    expect(stdout.text()).toBe(`${packageJson.version}\n`)
+  })
+
   test("accepts daemon flags without crashing", async () => {
     const stdout = bufferedOutput()
     let createServerCalled = false
