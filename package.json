@@ -4,7 +4,7 @@
   "description": "Local web UI for BlueNote.",
   "license": "Apache-2.0",
   "type": "module",
-  "private": true,
+  "private": false,
   "bin": {
     "bluenote-webui": "./bin/bluenote-webui.js"
   },
@@ -48,7 +48,7 @@
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
-    "@lordierclaw/bluenote-core": "file:../bluenote-core",
+    "@lordierclaw/bluenote-core": "git+https://github.com/LordierClaw/bluenote-core.git#a04c397e4ca64e7df4dc709b05164fdce538572b",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-markdown": "^10.1.0",
