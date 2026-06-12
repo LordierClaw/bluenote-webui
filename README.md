@@ -12,6 +12,36 @@ Local-first web UI for BlueNote. It is a Node 16.14-compatible TypeScript app wi
 
 ## Setup
 
+For the full BlueNote app, install/run the distribution CLI (`@lordierclaw/bluenote`) and use this package as the optional browser client discovered on `PATH` as `bluenote-webui`:
+
+```bash
+npm install -g @lordierclaw/bluenote
+npm install -g bluenote-webui
+bluenote doctor
+```
+
+When working from sibling source checkouts, build/check the core library first, then this client, then the distribution CLI last:
+
+```bash
+cd ../bluenote-core
+npm ci --include=dev
+npm run check
+
+cd ../bluenote-webui
+npm ci --include=dev
+npm run check
+npm link
+
+cd ../bluenote
+npm ci --include=dev
+npm run check
+npm link
+
+bluenote doctor
+```
+
+For WebUI-only development:
+
 ```bash
 # from ../bluenote-core
 npm ci --include=dev
