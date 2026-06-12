@@ -34,7 +34,7 @@ interface ParsedWebCommand {
   daemonUrl?: string
   help: boolean
   host: string
-  port: number
+  port?: number
   version: boolean
 }
 
@@ -78,7 +78,6 @@ function parseWebCommand(args: string[], env: Partial<Record<string, string | un
     daemonUrl: env.BLUENOTE_DAEMON_URL,
     help: false,
     host: env.BLUENOTE_WEBUI_HOST ?? DEFAULT_HOST,
-    port: parsePort(env.PORT ?? env.BLUENOTE_WEBUI_PORT ?? String(DEFAULT_PORT), "port"),
     version: false,
   }
 
@@ -159,6 +158,10 @@ function parseWebCommand(args: string[], env: Partial<Record<string, string | un
     }
 
     throw new Error(`Unknown option: ${arg}`)
+  }
+
+  if (parsed.port === undefined && !parsed.help && !parsed.version) {
+    parsed.port = parsePort(env.PORT ?? env.BLUENOTE_WEBUI_PORT ?? String(DEFAULT_PORT), "port")
   }
 
   return parsed
@@ -245,13 +248,14 @@ export async function runWebCommand(args: string[], options: WebCommandOptions =
     return 0
   }
 
+  const port = parsed.port ?? DEFAULT_PORT
   const makeServer = options.createServer ?? (await import("./server/index.js")).createServer
   const server = makeServer({ host: parsed.host })
 
   await new Promise<void>((resolve, reject) => {
     server.once?.("error", reject)
-    server.listen(parsed.port, parsed.host, () => {
-      stdout.write(`bluenote-webui server listening on http://${parsed.host}:${parsed.port}\n`)
+    server.listen(port, parsed.host, () => {
+      stdout.write(`bluenote-webui server listening on http://${parsed.host}:${port}\n`)
       resolve()
     })
   })

@@ -122,6 +122,46 @@ describe("runWebCommand", () => {
     expect(stdout.text()).toContain("--check-daemon")
   })
 
+  test("prints help even when environment port is invalid", async () => {
+    const stdout = bufferedOutput()
+    const stderr = bufferedOutput()
+    let createServerCalled = false
+
+    const result = await runWebCommand(["--help"], {
+      createServer() {
+        createServerCalled = true
+        return fakeServer(() => undefined)
+      },
+      env: { PORT: "not-a-port" },
+      stdout: stdout.output,
+      stderr: stderr.output,
+    })
+
+    expect(result).toBe(0)
+    expect(createServerCalled).toBe(false)
+    expect(stdout.text()).toContain("Usage: bluenote web [options]")
+    expect(stderr.text()).toBe("")
+  })
+
+  test("CLI port overrides invalid environment port", async () => {
+    const stdout = bufferedOutput()
+    const stderr = bufferedOutput()
+    const listens: Array<{ port: number; host: string }> = []
+
+    const result = await runWebCommand(["--port", "4174"], {
+      createServer() {
+        return fakeServer((port, host) => listens.push({ port, host }))
+      },
+      env: { PORT: "not-a-port" },
+      stdout: stdout.output,
+      stderr: stderr.output,
+    })
+
+    expect(result).toBeUndefined()
+    expect(listens).toEqual([{ port: 4174, host: "127.0.0.1" }])
+    expect(stderr.text()).toBe("")
+  })
+
   test("prints version without creating a server", async () => {
     const stdout = bufferedOutput()
     let createServerCalled = false
