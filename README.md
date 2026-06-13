@@ -20,25 +20,26 @@ npm install -g bluenote-webui
 bluenote doctor
 ```
 
-When working from sibling source checkouts, build/check the core library first, then this client, then the distribution CLI last:
+When working from sibling source checkouts, link the distribution CLI first, then link this optional browser client so `bluenote doctor` can discover `bluenote-webui` on `PATH`:
 
 ```bash
-cd ../bluenote-core
+cd ../bluenote
 npm ci --include=dev
 npm run check
+npm link
+bluenote doctor
 
 cd ../bluenote-webui
 npm ci --include=dev
 npm run check
 npm link
 
-cd ../bluenote
-npm ci --include=dev
-npm run check
-npm link
-
 bluenote doctor
 ```
+
+If your shell cannot find `bluenote-webui` after `npm link`, make sure your npm global command directory is on `PATH`. See the distribution README for bash, fish, cmd.exe, and PowerShell PATH examples.
+
+If you are actively changing `../bluenote-core`, run `npm ci --include=dev && npm run check` there before checking this client. Normal source-link app setup does not require globally linking the core library.
 
 For WebUI-only development:
 
