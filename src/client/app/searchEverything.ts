@@ -1,4 +1,4 @@
-import { collectContainsFieldMatches, scoreContainsMatch } from "../../../../bluenote-core/src/search/contains-match"
+import { collectContainsFieldMatches, scoreContainsMatch } from "@lordierclaw/bluenote-core/search/contains-match"
 
 import type { FolderView, NoteDetailView, NoteSummaryView, SearchResultView } from "../../shared/types"
 import type { CommandEntry } from "./commands"

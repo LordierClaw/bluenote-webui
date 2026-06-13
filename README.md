@@ -12,6 +12,37 @@ Local-first web UI for BlueNote. It is a Node 16.14-compatible TypeScript app wi
 
 ## Setup
 
+For the full BlueNote app, install/run the distribution CLI (`@lordierclaw/bluenote`) and use this package as the optional browser client discovered on `PATH` as `bluenote-webui`:
+
+```bash
+npm install -g @lordierclaw/bluenote
+npm install -g bluenote-webui
+bluenote doctor
+```
+
+When working from sibling source checkouts, link the distribution CLI first, then link this optional browser client so `bluenote doctor` can discover `bluenote-webui` on `PATH`:
+
+```bash
+cd ../bluenote
+npm ci --include=dev
+npm run check
+npm link
+bluenote doctor
+
+cd ../bluenote-webui
+npm ci --include=dev
+npm run check
+npm link
+
+bluenote doctor
+```
+
+If your shell cannot find `bluenote-webui` after `npm link`, make sure your npm global command directory is on `PATH`. See the distribution README for bash, fish, cmd.exe, and PowerShell PATH examples.
+
+If you are actively changing `../bluenote-core`, run `npm ci --include=dev && npm run check` there before checking this client. Normal source-link app setup does not require globally linking the core library.
+
+For WebUI-only development:
+
 ```bash
 # from ../bluenote-core
 npm ci --include=dev
@@ -32,6 +63,18 @@ npm run start
 ```
 
 Then open `http://127.0.0.1:4174`.
+
+## Public command API
+
+Distribution packages can start the WebUI without importing internal files:
+
+```ts
+import { runWebCommand } from "bluenote-webui"
+
+await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
+```
+
+`runWebCommand(args)` supports `--host`, `--port`, and `--help`. It uses the same defaults as `npm run start`: `BLUENOTE_WEBUI_HOST` or `127.0.0.1` for host, and `PORT`, `BLUENOTE_WEBUI_PORT`, or `4174` for port.
 
 ## Scripts
 

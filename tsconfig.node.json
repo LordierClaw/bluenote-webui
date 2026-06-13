@@ -16,5 +16,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/server", "src/shared", "scripts", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src/command.ts", "src/server", "src/shared", "scripts", "vite.config.ts", "vitest.config.ts"]
 }

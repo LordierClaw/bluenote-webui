@@ -4,7 +4,32 @@
   "description": "Local web UI for BlueNote.",
   "license": "Apache-2.0",
   "type": "module",
-  "private": true,
+  "private": false,
+  "bin": {
+    "bluenote-webui": "./bin/bluenote-webui.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/src/command.d.ts",
+      "import": "./dist/src/command.js"
+    },
+    "./command": {
+      "types": "./dist/src/command.d.ts",
+      "import": "./dist/src/command.js"
+    },
+    "./server": {
+      "types": "./dist/src/server/index.d.ts",
+      "import": "./dist/src/server/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "packageManager": "npm@8.5.0",
   "engines": {
     "node": ">=16.14 <17 || >=18"
@@ -16,13 +41,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "lint": "eslint .",
     "test": "NODE_ENV=test vitest run",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
-    "@lordierclaw/bluenote-core": "file:../bluenote-core",
+    "@lordierclaw/bluenote-core": "git+https://github.com/LordierClaw/bluenote-core.git#920f5c1030604a5be98d8d70d87d06ec0a57fb28",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-markdown": "^10.1.0",
