@@ -261,9 +261,13 @@ function TreeNote({
         <span className="material-symbols-outlined tree-row__icon" aria-hidden="true">
           {note.folder === "draft" ? "edit_note" : "description"}
         </span>
-        <span className="tree-row__label">{note.title}</span>
+        <div className="tree-row__text">
+          <span className="tree-row__label">{note.title}</span>
+          {note.description && (
+            <span className="tree-row__desc">{note.description}</span>
+          )}
+        </div>
         <span className="sr-only">{note.relativePath}</span>
-        {note.description && <span className="sr-only">{note.description}</span>}
       </button>
     </div>
   )
@@ -495,7 +499,6 @@ export function FolderManager({
       {/* ── Context bar: selected note inline actions ── */}
       {selectedNote ? (
         <div className="manager-context-bar" role="toolbar" aria-label={`manager actions for ${selectedNote.title}`}>
-          <span className="manager-context-label" title={selectedNote.title}>{selectedNote.title}</span>
           <div className="manager-context-actions">
             <button
               type="button"
@@ -504,7 +507,8 @@ export function FolderManager({
               aria-label="Rename"
               title="Rename"
             >
-              <span className="material-symbols-outlined" aria-hidden="true">edit</span>
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+              <span>Rename</span>
             </button>
             {selectedNote.folder !== "draft" && (
               <button
@@ -514,7 +518,8 @@ export function FolderManager({
                 aria-label="Move"
                 title="Move"
               >
-                <span className="material-symbols-outlined" aria-hidden="true">drive_file_move</span>
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">drive_file_move</span>
+                <span>Move</span>
               </button>
             )}
             {selectedNote.folder === "draft" && (
@@ -525,7 +530,8 @@ export function FolderManager({
                 aria-label="Save draft as note"
                 title="Save draft as note"
               >
-                <span className="material-symbols-outlined" aria-hidden="true">publish</span>
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">publish</span>
+                <span>Save as Note</span>
               </button>
             )}
             {selectedNote.folder !== "draft" && (
@@ -536,7 +542,8 @@ export function FolderManager({
                 aria-label="Archive"
                 title="Archive"
               >
-                <span className="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">inventory_2</span>
+                <span>Archive</span>
               </button>
             )}
             <button
@@ -546,7 +553,8 @@ export function FolderManager({
               aria-label="Delete"
               title="Delete"
             >
-              <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">delete</span>
+              <span>Delete</span>
             </button>
           </div>
 

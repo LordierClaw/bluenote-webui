@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import type { FolderView, NoteDetailView, NoteSummaryView, SearchResultView } from "../../shared/types"
 import type { CommandEntry } from "../app/commands"
@@ -62,6 +62,8 @@ export function CommandPalette({
   const [index, setIndex] = useState(0)
   const [remoteNotes, setRemoteNotes] = useState<SearchResultView[]>([])
   const [previewNotes, setPreviewNotes] = useState<Record<string, NoteDetailView>>({})
+  const resultsRef = useRef<HTMLDivElement | null>(null)
+  const itemRefsMap = useRef<Map<number, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
     if (!open) return
@@ -113,6 +115,12 @@ export function CommandPalette({
     selectedEntry,
     selectedEntry?.kind === "note" ? (previewNotes[selectedEntry.note.key] ?? null) : null,
   )
+
+  // Auto-scroll selected result into view when navigating with arrow keys
+  useEffect(() => {
+    const el = itemRefsMap.current.get(index)
+    if (el) el.scrollIntoView({ block: "nearest" })
+  }, [index])
   const trimmedQuery = query.trim()
   const showStarterState = trimmedQuery.length === 0
   const showNoResultsState = trimmedQuery.length > 0 && entries.length === 0
@@ -157,6 +165,8 @@ export function CommandPalette({
             id="search-everything-input"
             autoFocus
             aria-label="Search Everything"
+            autoComplete="off"
+            spellCheck="false"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -178,10 +188,14 @@ export function CommandPalette({
               {entries.length > 0 ? <span>{entries.length}</span> : null}
             </div>
 
-            <div className="palette-results" role="listbox" aria-label="Search results">
+            <div className="palette-results" role="listbox" aria-label="Search results" ref={resultsRef}>
               {entries.map((entry, itemIndex) => (
                 <button
                   key={entry.id}
+                  ref={(el) => {
+                    if (el) itemRefsMap.current.set(itemIndex, el)
+                    else itemRefsMap.current.delete(itemIndex)
+                  }}
                   className={`palette-result-item${itemIndex === index ? " selected" : ""}`}
                   disabled={entry.kind === "command" && entry.command.disabled}
                   onMouseDown={(event) => event.preventDefault()}
