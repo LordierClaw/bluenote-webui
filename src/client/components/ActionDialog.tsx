@@ -103,7 +103,7 @@ export function ActionDialog({
             onClick={() => requestClose()}
             disabled={busy}
           >
-            ×
+            <span className="material-symbols-outlined" aria-hidden="true">close</span>
           </button>
         </div>
         <div className="action-box-body">{children}</div>

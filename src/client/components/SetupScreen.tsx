@@ -30,7 +30,7 @@ export function SetupScreen({ error, defaultRootPath, onSubmit }: { error?: stri
         </label>
         {error ? <p role="alert" className="error">{error}</p> : null}
         <div className="button-row">
-          <button className="primary" disabled={busy || !rootPath.trim()} onClick={() => void submit(true)}>Use default</button>
+          <button className="btn-primary" disabled={busy || !rootPath.trim()} onClick={() => void submit(true)}>Use default</button>
           <button disabled={busy || !rootPath.trim()} onClick={() => void submit(false)}>Open</button>
           <button disabled={busy || !rootPath.trim()} onClick={() => void submit(true)}>Initialize</button>
         </div>

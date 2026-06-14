@@ -15,6 +15,7 @@ import { FolderManager } from "../components/FolderManager"
 import { NoteCommandSurface } from "../components/NoteCommandSurface"
 import { PreviewPane } from "../components/PreviewPane"
 import { SetupScreen } from "../components/SetupScreen"
+import { SettingsModal } from "../components/SettingsModal"
 
 
 type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "rename-folder" | "archive-note" | "delete-note" | null
@@ -99,6 +100,7 @@ export function App() {
   const [aiQueue, setAiQueue] = useState<AiQueueView | null>(null)
   const [codexAuth, setCodexAuth] = useState<CodexAuthStatusView | null>(null)
   const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const bodyRef = useRef(body)
   const dirtyRef = useRef(dirty)
   const selectedKeyRef = useRef<string | null>(null)
@@ -610,7 +612,18 @@ export function App() {
   if (!workspaceState.workspace?.initialized) return <SetupScreen defaultRootPath={workspaceState.workspace?.defaultRootPath} error={workspaceState.error} onSubmit={workspaceState.open} />
 
   return (
-    <AppShell workspace={workspaceState.workspace} aiStatus={aiStatus} noteCount={notes.length} theme={theme} panes={panes} onToggleTheme={toggleTheme} onPalette={() => setPalette(true)} onAi={() => void openAiDialog()}>
+    <AppShell
+      workspace={workspaceState.workspace}
+      aiStatus={aiStatus}
+      noteCount={notes.length}
+      theme={theme}
+      panes={panes}
+      onToggleTheme={toggleTheme}
+      onPalette={() => setPalette(true)}
+      onAi={() => void openAiDialog()}
+      onSettings={() => setSettingsOpen(true)}
+      currentNotePath={selectedNote?.relativePath ?? null}
+    >
       <div className={`main-grid ${panes.managerVisible ? "manager-visible" : "manager-hidden"} ${panes.previewVisible ? "preview-visible" : "preview-hidden"}`}>
         {panes.managerVisible ? (
           <FolderManager
@@ -731,12 +744,18 @@ export function App() {
           {actionBox === "delete-note" ? <p>Delete “{activeActionNote?.title}”? This cannot be undone.</p> : null}
           <div className="action-buttons">
             <button type="button" onClick={() => closeActionBox()} disabled={submittingAction}>Cancel</button>
-            <button className={actionBox === "delete-note" ? "danger" : "primary"} type="submit" disabled={submittingAction || ((actionBox === "new-note" || actionBox === "new-folder" || actionBox === "save-draft-as" || actionBox === "rename-note" || actionBox === "rename-folder") && !actionValue.trim())}>
+            <button className={actionBox === "delete-note" ? "btn-danger" : "btn-primary"} type="submit" disabled={submittingAction || ((actionBox === "new-note" || actionBox === "new-folder" || actionBox === "save-draft-as" || actionBox === "rename-note" || actionBox === "rename-folder") && !actionValue.trim())}>
               {actionBox === "delete-note" ? "Delete" : actionBox === "archive-note" ? "Archive" : actionBox === "move-note" ? "Move" : actionBox === "rename-note" || actionBox === "rename-folder" ? "Rename" : actionBox === "save-draft-as" ? "Save to notes" : "Save"}
             </button>
           </div>
         </form>
       </NoteCommandSurface>
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme === "light" ? "light" : "dark"}
+        onThemeChange={(t) => { if (t === "light" && theme !== "light") toggleTheme(); else if (t === "dark" && theme !== "dark") toggleTheme(); }}
+      />
     </AppShell>
   )
 }

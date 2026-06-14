@@ -7,8 +7,17 @@ import { ActionDialog } from "./ActionDialog"
 
 type PaletteNote = NoteSummaryView | SearchResultView
 
-const PALETTE_SHORTCUT_HINTS = ["↑↓ move", "Enter open", "Esc close"]
 const PALETTE_SAMPLE_SEARCHES = ["alpha.md", "projects", "rename", "Ctrl+S"]
+
+function entryIcon(kind: string): string {
+  switch (kind) {
+    case "note": return "description"
+    case "folder": return "folder"
+    case "content": return "search"
+    case "command": return "terminal"
+    default: return "description"
+  }
+}
 
 export function CommandPalette({
   open,
@@ -49,7 +58,6 @@ export function CommandPalette({
       setRemoteNotes([])
       return
     }
-
     let cancelled = false
     void onSearchNotes(query)
       .then((results) => {
@@ -60,10 +68,7 @@ export function CommandPalette({
       .catch(() => {
         if (!cancelled) setRemoteNotes([])
       })
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [onSearchNotes, open, query])
 
   const entries = useMemo(() => buildSearchEverythingEntries(query, {
@@ -77,17 +82,13 @@ export function CommandPalette({
 
   useEffect(() => {
     if (!selectedEntry || selectedEntry.kind !== "note" || !onLoadNotePreview || previewNotes[selectedEntry.note.key]) return
-
     let cancelled = false
     void onLoadNotePreview(selectedEntry.note.key)
       .then((note) => {
         if (!cancelled) setPreviewNotes((current) => ({ ...current, [note.key]: note }))
       })
       .catch(() => undefined)
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [onLoadNotePreview, previewNotes, selectedEntry])
 
   const preview = buildSearchEverythingPreview(
@@ -124,21 +125,14 @@ export function CommandPalette({
   return (
     <ActionDialog open={open} title="Search and commands" onClose={onClose} className="command-palette-shell">
       <div className="action-form command-palette-form">
-        <div className="command-palette-searchbar">
-          <div className="command-palette-searchbar__header">
-            <div className="command-palette-searchbar__intro">
-              <span className="note-command-surface__eyebrow">Search Everything</span>
-              <p>Jump to notes, folders, commands, or content from one compact surface.</p>
-            </div>
-            <div className="command-palette-shortcuts" aria-label="Command palette shortcuts">
-              {PALETTE_SHORTCUT_HINTS.map((hint) => <span key={hint} className="command-palette-shortcut">{hint}</span>)}
-            </div>
-          </div>
+        {/* ── Search input header ── */}
+        <div className="command-palette-searchbar" role="search">
+          <span className="material-symbols-outlined" aria-hidden="true">search</span>
           <label className="sr-only" htmlFor="search-everything-input">Search Everything</label>
           <input
             id="search-everything-input"
             autoFocus
-            aria-label="Search Everything"
+            aria-label="Search notes, content, or folders"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -146,25 +140,33 @@ export function CommandPalette({
               if (event.key === "ArrowUp") setIndex((value) => Math.max(value - 1, 0))
               if (event.key === "Enter") activate()
             }}
-            placeholder="Search notes, folders, commands, descriptions"
+            placeholder="Search notes, content, or folders..."
           />
+          <span className="cmd-esc-hint" aria-hidden="true">ESC TO CLOSE</span>
         </div>
+
+        {/* ── Results + Preview layout ── */}
         <div className="palette-layout">
+          {/* Results column */}
           <div className="palette-results-shell">
-            <div className="palette-section-label">{entries.length > 0 ? `Results · ${entries.length}` : "Results"}</div>
+            <div className="palette-section-label">
+              <span>Results</span>
+              {entries.length > 0 ? <span>{entries.length}</span> : null}
+            </div>
+
             <div className="palette-results" role="listbox" aria-label="Search results">
               {entries.map((entry, itemIndex) => (
                 <button
                   key={entry.id}
-                  className={itemIndex === index ? "selected palette-result-item" : "palette-result-item"}
+                  className={`palette-result-item${itemIndex === index ? " selected" : ""}`}
                   disabled={entry.kind === "command" && entry.command.disabled}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setIndex(itemIndex)}
-                  onClick={() => {
-                    setIndex(itemIndex)
-                    activate(entry)
-                  }}
+                  onClick={() => { setIndex(itemIndex); activate(entry) }}
+                  role="option"
+                  aria-selected={itemIndex === index}
                 >
+                  <span className="material-symbols-outlined" aria-hidden="true">{entryIcon(entry.kind)}</span>
                   <div>
                     <strong>{entry.label}</strong>
                     <span>{entry.detail}</span>
@@ -172,49 +174,97 @@ export function CommandPalette({
                   <small>{entry.kind}</small>
                 </button>
               ))}
+
               {showStarterState ? (
                 <div className="palette-empty-state" aria-live="polite">
                   <strong>Start typing to search everything</strong>
-                  <p>Search titles, paths, folder names, command labels, and server-backed content matches from one place.</p>
+                  <p>Search titles, paths, folder names, command labels, and content from one place.</p>
                   <div className="palette-empty-state__chips" aria-label="Sample searches">
-                    {PALETTE_SAMPLE_SEARCHES.map((sample) => <span key={sample} className="palette-empty-state__chip">{sample}</span>)}
+                    {PALETTE_SAMPLE_SEARCHES.map((sample) => (
+                      <button
+                        key={sample}
+                        className="palette-empty-state__chip"
+                        type="button"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setQuery(sample)}
+                      >
+                        {sample}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ) : null}
+
               {showNoResultsState ? (
                 <div className="palette-empty-state" aria-live="polite">
-                  <strong>No results for “{trimmedQuery}”</strong>
+                  <strong>No results for "{trimmedQuery}"</strong>
                   <p>Try a note title, file path, folder name, command label, or shortcut.</p>
                 </div>
               ) : null}
             </div>
           </div>
-          <aside className="palette-preview" aria-label="Selected search preview">
-            <div className="palette-section-label">Preview</div>
+
+          {/* Preview panel */}
+          <aside className="palette-preview" aria-label="Selected item preview">
             {preview ? (
               <>
                 <strong>{preview.title}</strong>
                 {preview.subtitle ? <p className="row-path">{preview.subtitle}</p> : null}
                 <div className="palette-preview-body">
-                  {preview.lines.map((line, lineIndex) => <p key={`${preview.title}-${lineIndex}`}>{line}</p>)}
+                  {preview.lines.map((line, lineIndex) => (
+                    <p key={`${preview.title}-${lineIndex}`}>{line}</p>
+                  ))}
                 </div>
               </>
             ) : (
               <div className="palette-preview-empty-state">
-                <strong>{showStarterState ? "Preview the selected result" : "Nothing selected yet"}</strong>
+                <strong>{showStarterState ? "Preview selected result" : "Nothing selected"}</strong>
                 <p>
                   {showStarterState
-                    ? "Use the examples on the left, then move with the arrow keys to inspect a result before opening it."
-                    : "When a match appears, its note body, folder contents, or command details will show here."}
+                    ? "Move with arrow keys to inspect a result before opening."
+                    : "When a match appears, its content will show here."}
                 </p>
-                <div className="palette-preview-empty-state__list" aria-label="Search tips">
-                  <span>Notes show markdown context.</span>
-                  <span>Folders show child items.</span>
-                  <span>Commands show shortcuts.</span>
+                <div className="palette-preview-empty-state__list" aria-label="Preview tips">
+                  <span>Notes show content</span>
+                  <span>Folders show children</span>
+                  <span>Commands show shortcuts</span>
                 </div>
               </div>
             )}
           </aside>
+        </div>
+
+        {/* ── Footer with actions and nav hints ── */}
+        <div className="palette-footer">
+          <div className="palette-footer-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => activate()}
+              disabled={!selectedEntry}
+              aria-label="Open selected item (Enter)"
+              style={{ fontSize: "13px", padding: "6px 14px" }}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">keyboard_return</span>
+              Open
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close palette (Escape)"
+              style={{ fontSize: "13px", padding: "6px 14px" }}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">close</span>
+              Close
+            </button>
+          </div>
+          <div className="palette-footer-hints">
+            <span className="palette-footer-hint">
+              <span className="material-symbols-outlined" aria-hidden="true">keyboard_arrow_up</span>
+              <span className="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
+              Navigate
+            </span>
+          </div>
         </div>
       </div>
     </ActionDialog>

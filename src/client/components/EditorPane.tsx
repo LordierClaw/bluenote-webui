@@ -1,12 +1,4 @@
 import { useId, useMemo, useRef, useState } from "react"
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import {
-  faCircle,
-  faClockRotateLeft,
-  faFileLines,
-  faFilePen,
-  faFolderOpen,
-} from "@fortawesome/free-solid-svg-icons"
 import type { NoteDetailView } from "../../shared/types"
 
 type EditorPaneProps = {
@@ -53,11 +45,6 @@ function measureCursor(text: string, offset: number, selectionLength = 0): Curso
   }
 }
 
-function editorKindIcon(note?: NoteDetailView | null) {
-  if (!note) return faFolderOpen
-  return note.folder === "draft" ? faFilePen : faFileLines
-}
-
 function compactStatusLabel(dirty: boolean, saveState: string): string {
   if (dirty) return "Unsaved"
   return saveState === "Loaded" ? "Saved" : saveState
@@ -69,17 +56,20 @@ export function EditorPane({
   dirty,
   saveState,
   onBodyChange,
+  onSave,
 }: EditorPaneProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const bodyId = useId()
   const [wrapEnabled, setWrapEnabled] = useState(true)
   const [cursor, setCursor] = useState<CursorState>(() => measureCursor(body, 0))
 
-  const noteKind = note?.folder === "draft" ? "Draft" : note ? "Note" : "Workspace"
   const updatedAt = formatTimestamp(note?.updatedAt ?? note?.createdAt)
   const lineCount = useMemo(() => (body.length ? body.split("\n").length : 1), [body])
-  const statusLabel = dirty ? "Unsaved changes" : saveState
   const compactStatus = compactStatusLabel(dirty, saveState)
+  const wordCount = useMemo(() => {
+    const trimmed = body.trim()
+    return trimmed ? trimmed.split(/\s+/).length : 0
+  }, [body])
 
   function syncCursorFromTextarea() {
     const element = textareaRef.current
@@ -89,47 +79,32 @@ export function EditorPane({
 
   return (
     <section className="editor-pane" aria-label="Editor">
+      {/* ── Editor Header ── */}
       <header className="editor-header">
-        <div className="editor-header__meta">
-          <div className="editor-header__eyebrow">
-            <span className="editor-meta-chip editor-meta-chip--kind">
-              <FontAwesomeIcon icon={editorKindIcon(note)} aria-hidden="true" />
-              <span>{noteKind}</span>
-            </span>
-            {note ? (
-              <span className={`editor-meta-chip editor-meta-chip--status${dirty ? " is-dirty" : ""}`}>
-                <FontAwesomeIcon icon={faCircle} aria-hidden="true" />
-                <span>{compactStatus}</span>
-              </span>
-            ) : null}
-          </div>
-          <h1>{note?.title ?? "No note selected"}</h1>
-          <div className="editor-header__meta-line">
-            {note ? (
-              <>
-                <span className="editor-header__path">
-                  <FontAwesomeIcon icon={editorKindIcon(note)} aria-hidden="true" />
-                  <span>{note.relativePath}</span>
-                </span>
-                {updatedAt ? (
-                  <span className="editor-header__updated">
-                    <FontAwesomeIcon icon={faClockRotateLeft} aria-hidden="true" />
-                    <span>Updated {updatedAt}</span>
-                  </span>
-                ) : null}
-              </>
-            ) : (
-              <span className="editor-header__empty">Open or create a note to start writing.</span>
-            )}
-          </div>
-        </div>
+        {/* Title – matches Stitch "Deep Work Session" editable header */}
+        <input
+          className="editor-title-input"
+          type="text"
+          readOnly
+          value={note?.title ?? ""}
+          placeholder="No note selected"
+          aria-label="Note title"
+        />
+        {/* Timestamp right-aligned */}
+        {updatedAt ? (
+          <span className="editor-timestamp" aria-label={`Last updated ${updatedAt}`}>
+            Updated {updatedAt}
+          </span>
+        ) : null}
       </header>
+
+      {/* ── Editor Body ── */}
       <div className="editor-body-shell">
         <label className="sr-only" htmlFor={bodyId}>Note body</label>
         <textarea
           id={bodyId}
           ref={textareaRef}
-          className={`editor-textarea${wrapEnabled ? " is-wrapped" : " is-unwrapped"}`}
+          className={`editor-textarea${wrapEnabled ? "" : " is-unwrapped"}`}
           aria-label="Note body"
           aria-describedby={`${bodyId}-status`}
           disabled={!note}
@@ -147,17 +122,49 @@ export function EditorPane({
           placeholder="Open or create a note to start writing."
         />
       </div>
-      <footer className="editor-status-bar" id={`${bodyId}-status`} aria-label="Editor status bar">
+
+      {/* ── Status Bar Footer ── */}
+      <footer
+        className="editor-status-bar"
+        id={`${bodyId}-status`}
+        aria-label="Editor status bar"
+      >
+        {/* Left: position + line count + word count */}
         <div className="editor-status-bar__tokens">
-          <span className="editor-status-token">{noteKind}</span>
-          <span className="editor-status-token">{statusLabel}</span>
-          <span className="editor-status-token">Lines {lineCount}</span>
           <span className="editor-status-token">Ln {cursor.line}, Col {cursor.column}</span>
-          {cursor.selectionLength > 0 ? <span className="editor-status-token">Sel {cursor.selectionLength}</span> : null}
+          <span className="editor-status-token">Words: {wordCount}</span>
+          {cursor.selectionLength > 0 ? (
+            <span className="editor-status-token">Sel {cursor.selectionLength}</span>
+          ) : null}
         </div>
-        <button type="button" className="editor-status-bar__toggle" onClick={() => setWrapEnabled((value) => !value)}>
-          Wrap {wrapEnabled ? "On" : "Off"}
-        </button>
+
+        {/* Right: controls */}
+        <div className="editor-status-bar__actions">
+          <button
+            type="button"
+            className="editor-status-action"
+            onClick={() => setWrapEnabled((v) => !v)}
+            aria-label={wrapEnabled ? "Disable word wrap" : "Enable word wrap"}
+            aria-pressed={wrapEnabled}
+          >
+            Wrap: {wrapEnabled ? "On" : "Off"}
+          </button>
+          <span className="editor-status-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="editor-status-action"
+            onClick={onSave}
+            disabled={!note || !dirty}
+            aria-label="Save note (Ctrl+S)"
+            title="Save (Ctrl+S)"
+          >
+            {compactStatus}
+          </button>
+          <span className="editor-status-sep" aria-hidden="true" />
+          <span className="editor-status-token" style={{ padding: "0 10px", color: "var(--on-surface-variant)", opacity: 0.6 }}>
+            Lines: {lineCount}
+          </span>
+        </div>
       </footer>
     </section>
   )
