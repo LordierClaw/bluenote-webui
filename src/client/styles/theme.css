@@ -993,12 +993,44 @@ textarea:focus { outline: none; border-color: transparent; box-shadow: none; }
 .editor-body-shell {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--bg);
+  position: relative;
+}
+
+/* Highlight underlay */
+.editor-underlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  padding: 24px 32px;
+  margin: 0;
+  display: block;
+  background: transparent;
+  color: transparent;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  border: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  pointer-events: none;
+  z-index: 1;
+}
+.editor-underlay.is-unwrapped { white-space: pre; }
+
+.search-match {
+  background-color: rgba(173, 198, 255, 0.4);
+  color: transparent;
+  border-radius: 2px;
+}
+.search-match.is-active {
+  background-color: rgba(255, 171, 0, 0.5);
+  border: 1px solid rgba(255, 171, 0, 0.8);
+  margin: -1px;
 }
 
 .editor-textarea {
@@ -1006,8 +1038,6 @@ textarea:focus { outline: none; border-color: transparent; box-shadow: none; }
   min-height: 0;
   width: 100%;
   height: 100%;
-  max-width: 80ch;
-  margin: 0 auto;
   max-width: none;
   margin: 0;
   display: block;
@@ -1022,6 +1052,8 @@ textarea:focus { outline: none; border-color: transparent; box-shadow: none; }
   resize: none;
   overflow: auto;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
 }
 .editor-textarea:focus { outline: none; border: none; box-shadow: none; }
 .editor-textarea.is-unwrapped { white-space: pre; }
@@ -1655,7 +1687,7 @@ div.command-palette-shell .action-box-body {
   /* On mobile, editor is the primary pane */
   .folder-manager { display: none; }
   .preview-pane { display: none; }
-  .editor-textarea { padding: 16px; }
+  .editor-textarea, .editor-underlay { padding: 16px; }
 }
 
 @media (max-width: 1023px) {
@@ -1965,6 +1997,77 @@ button.danger:hover:not(:disabled) { background: rgba(147, 0, 10, 0.6); }
 .editor-header-icon-btn[aria-pressed="true"] { color: var(--primary); }
 .editor-header-icon-btn .material-symbols-outlined { font-size: 18px; }
 
+/* ── Editor Find and Replace ─────────────────────────────────────────────── */
+.editor-find-replace {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-low);
+  border-bottom: 1px solid var(--outline-variant);
+  padding: 6px 16px;
+  gap: 6px;
+}
+
+.editor-find-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-find-replace-row > .material-symbols-outlined {
+  color: var(--on-surface-variant);
+}
+
+.find-replace-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  background: var(--surface-highest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 2px;
+  padding: 0 8px;
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.find-replace-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.find-replace-count {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  font-family: var(--font-mono);
+  min-width: 60px;
+  text-align: right;
+}
+
+.find-replace-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.find-replace-btn {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface-highest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 2px;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.find-replace-btn:hover:not(:disabled) {
+  background: var(--surface-high);
+  color: var(--on-surface);
+}
+.find-replace-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 /* ── Match highlight in palette ──────────────────────────────────────── */
 .palette-match-highlight {
   background: rgba(173, 198, 255, 0.25); color: var(--primary);

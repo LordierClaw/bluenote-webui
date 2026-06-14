@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react"
+import { useId, useMemo, useRef, useState, useEffect } from "react"
 import type { NoteDetailView } from "../../shared/types"
 
 type EditorPaneProps = {
@@ -64,9 +64,157 @@ export function EditorPane({
   onTogglePreview,
 }: EditorPaneProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const underlayRef = useRef<HTMLDivElement | null>(null)
   const bodyId = useId()
   const [wrapEnabled, setWrapEnabled] = useState(true)
   const [cursor, setCursor] = useState<CursorState>(() => measureCursor(body, 0))
+
+  // Find & Replace State
+  const [showFindReplace, setShowFindReplace] = useState(false)
+  const [findQuery, setFindQuery] = useState("")
+  const [replaceQuery, setReplaceQuery] = useState("")
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
+  const findInputRef = useRef<HTMLInputElement | null>(null)
+
+  const matches = useMemo(() => {
+    if (!findQuery) return []
+    const q = findQuery.toLowerCase()
+    const b = body.toLowerCase()
+    const results: { start: number; end: number }[] = []
+    let idx = b.indexOf(q)
+    while (idx !== -1) {
+      results.push({ start: idx, end: idx + q.length })
+      idx = b.indexOf(q, idx + q.length)
+    }
+    return results
+  }, [body, findQuery])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!note) return
+      // Ctrl+F or Cmd+F
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault()
+        setShowFindReplace(true)
+        setTimeout(() => {
+          if (findInputRef.current) {
+            findInputRef.current.focus()
+            findInputRef.current.select()
+          }
+        }, 0)
+        return
+      }
+      
+      // F3 or Ctrl+G / Cmd+G for Find Next/Prev
+      const isG = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g"
+      const isF3 = e.key === "F3"
+      if ((isG || isF3) && showFindReplace) {
+        e.preventDefault()
+        if (e.shiftKey) {
+          prevMatch()
+        } else {
+          nextMatch()
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [note, showFindReplace, matches, currentMatchIndex]) // Needs these deps for nextMatch/prevMatch
+
+  function jumpToMatch(index: number) {
+    if (matches.length === 0) return
+    const safeIndex = Math.min(Math.max(index, 0), matches.length - 1)
+    setCurrentMatchIndex(safeIndex)
+    const match = matches[safeIndex]
+    const ta = textareaRef.current
+    if (ta) {
+      ta.setSelectionRange(match.start, match.end)
+      setCursor(measureCursor(body, match.start, match.end - match.start))
+    }
+  }
+
+  // Scroll to active match when it changes
+  useEffect(() => {
+    if (showFindReplace && matches.length > 0) {
+      // Use setTimeout to ensure DOM has updated with the .is-active class
+      const timer = setTimeout(() => {
+        const activeMark = underlayRef.current?.querySelector('.search-match.is-active') as HTMLElement
+        const ta = textareaRef.current
+        if (activeMark && ta) {
+          const markTop = activeMark.offsetTop
+          const markBottom = markTop + activeMark.offsetHeight
+          
+          const taTop = ta.scrollTop
+          const taHeight = ta.clientHeight
+          const padding = 40 // keep it somewhat centered
+          
+          if (markTop < taTop + padding) {
+            ta.scrollTop = Math.max(0, markTop - padding)
+          } else if (markBottom > taTop + taHeight - padding) {
+            ta.scrollTop = markBottom - taHeight + padding
+          }
+        }
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [currentMatchIndex, matches, showFindReplace])
+
+  function nextMatch() {
+    jumpToMatch((currentMatchIndex + 1) % matches.length)
+  }
+
+  function prevMatch() {
+    jumpToMatch((currentMatchIndex - 1 + matches.length) % matches.length)
+  }
+
+  function replaceMatch() {
+    if (matches.length === 0) return
+    const safeIndex = Math.min(Math.max(currentMatchIndex, 0), matches.length - 1)
+    const match = matches[safeIndex]
+    const newBody = body.substring(0, match.start) + replaceQuery + body.substring(match.end)
+    onBodyChange(newBody)
+    // Focus textarea to show the replacement effect
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  function replaceAllMatches() {
+    if (matches.length === 0) return
+    const escapedQuery = findQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const newBody = body.replace(new RegExp(escapedQuery, "gi"), replaceQuery)
+    onBodyChange(newBody)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  function handleScroll(e: React.UIEvent<HTMLTextAreaElement>) {
+    if (underlayRef.current) {
+      underlayRef.current.scrollTop = e.currentTarget.scrollTop
+      underlayRef.current.scrollLeft = e.currentTarget.scrollLeft
+    }
+  }
+
+  // Generate the highlighted underlay elements
+  const underlayNodes = useMemo(() => {
+    if (!showFindReplace || matches.length === 0) {
+      return body
+    }
+    const nodes: React.ReactNode[] = []
+    let lastIndex = 0
+    matches.forEach((match, i) => {
+      if (match.start > lastIndex) {
+        nodes.push(body.substring(lastIndex, match.start))
+      }
+      nodes.push(
+        <mark key={i} className={`search-match ${i === currentMatchIndex ? "is-active" : ""}`}>
+          {body.substring(match.start, match.end)}
+        </mark>
+      )
+      lastIndex = match.end
+    })
+    if (lastIndex < body.length) {
+      nodes.push(body.substring(lastIndex))
+    }
+    return nodes
+  }, [body, matches, currentMatchIndex, showFindReplace])
 
   const updatedAt = formatTimestamp(note?.updatedAt ?? note?.createdAt)
   const lineCount = useMemo(() => (body.length ? body.split("\n").length : 1), [body])
@@ -110,13 +258,88 @@ export function EditorPane({
             Updated {updatedAt}
           </span>
         ) : null}
-
-        {/* (Show Preview button removed) */}
       </header>
+
+      {/* ── Find and Replace Bar ── */}
+      {showFindReplace && note ? (
+        <div className="editor-find-replace">
+          <div className="editor-find-replace-row">
+            <span className="material-symbols-outlined icon-sm">search</span>
+            <input
+              ref={findInputRef}
+              type="text"
+              placeholder="Find..."
+              value={findQuery}
+              onChange={(e) => {
+                setFindQuery(e.target.value)
+                setCurrentMatchIndex(0)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  if (e.shiftKey) prevMatch()
+                  else nextMatch()
+                }
+                if (e.key === "Escape") {
+                  setShowFindReplace(false)
+                  textareaRef.current?.focus()
+                }
+              }}
+              className="find-replace-input"
+            />
+            <span className="find-replace-count">
+              {matches.length > 0 ? `${currentMatchIndex + 1} of ${matches.length}` : "No results"}
+            </span>
+            <div className="find-replace-actions">
+              <button className="editor-header-icon-btn" onClick={prevMatch} title="Previous (Shift+Enter)">
+                <span className="material-symbols-outlined icon-sm">keyboard_arrow_up</span>
+              </button>
+              <button className="editor-header-icon-btn" onClick={nextMatch} title="Next (Enter)">
+                <span className="material-symbols-outlined icon-sm">keyboard_arrow_down</span>
+              </button>
+              <button className="editor-header-icon-btn close-btn" onClick={() => setShowFindReplace(false)} title="Close (Escape)">
+                <span className="material-symbols-outlined icon-sm">close</span>
+              </button>
+            </div>
+          </div>
+          <div className="editor-find-replace-row">
+            <span className="material-symbols-outlined icon-sm">find_replace</span>
+            <input
+              type="text"
+              placeholder="Replace..."
+              value={replaceQuery}
+              onChange={(e) => setReplaceQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  replaceMatch()
+                }
+              }}
+              className="find-replace-input"
+            />
+            <div className="find-replace-actions">
+              <button className="find-replace-btn" onClick={replaceMatch} disabled={matches.length === 0}>Replace</button>
+              <button className="find-replace-btn" onClick={replaceAllMatches} disabled={matches.length === 0}>Replace All</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Editor Body ── */}
       <div className="editor-body-shell">
         <label className="sr-only" htmlFor={bodyId}>Note body</label>
+        
+        {/* Underlay for search highlights */}
+        <div 
+          ref={underlayRef}
+          className={`editor-underlay${wrapEnabled ? "" : " is-unwrapped"}`} 
+          aria-hidden="true"
+        >
+          {underlayNodes}
+          {/* Append a space to ensure trailing newlines render correctly in the underlay */}
+          {" "}
+        </div>
+
         <textarea
           id={bodyId}
           ref={textareaRef}
@@ -127,6 +350,7 @@ export function EditorPane({
           value={body}
           wrap={wrapEnabled ? "soft" : "off"}
           spellCheck={false}
+          onScroll={handleScroll}
           onChange={(event) => {
             onBodyChange(event.target.value)
             setCursor(measureCursor(event.target.value, event.target.selectionStart, Math.max(0, event.target.selectionEnd - event.target.selectionStart)))
