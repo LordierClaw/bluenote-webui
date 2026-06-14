@@ -2,7 +2,6 @@ import type { ReactNode } from "react"
 import type { AiStatusSummary, WorkspaceStatus } from "../../shared/types"
 import type { ResponsivePanesState } from "../app/useResponsivePanes"
 import type { ThemePreference } from "../app/useThemePreference"
-import { PaneToggleButtons } from "./PaneToggleButtons"
 
 type AppShellWorkspace = Pick<WorkspaceStatus, "initialized" | "rootPath" | "noteCount">
 type AppShellAiStatus = AiStatusSummary | { status: string }
@@ -52,7 +51,6 @@ export function AppShell({
   currentNotePath,
 }: AppShellProps) {
   const showWorkspaceViewToolbar = !panes.managerVisible && !panes.previewVisible
-  const topbarNeedsRestoreControls = !showWorkspaceViewToolbar && (!panes.managerVisible || !panes.previewVisible)
   const ai = summarizeAiStatus(aiStatus)
   const themeLabel = theme === "light" ? "Switch to dark mode" : "Switch to light mode"
   const themeIcon = theme === "light" ? "dark_mode" : "light_mode"
@@ -62,23 +60,48 @@ export function AppShell({
     <div className="app-shell">
       {/* ── Top Nav Bar ── */}
       <header className="topbar" role="banner">
-        {/* Left: brand + file path */}
+        {/* Left: brand (click to toggle sidebar) + file path */}
         <div className="topbar-left">
-          <div className="topbar-brand" aria-label="BlueNote Web">
+          <button
+            type="button"
+            className="topbar-brand"
+            aria-label={panes.managerVisible ? "Hide sidebar" : "Show sidebar"}
+            title={panes.managerVisible ? "Hide sidebar" : "Show sidebar"}
+            onClick={panes.managerVisible ? panes.hideManager : panes.openManager}
+          >
             <span className="topbar-brand__name">BlueNote</span>
             <span className="topbar-brand__suffix">Web</span>
-          </div>
+          </button>
+          {!panes.managerVisible ? (
+            <button
+              type="button"
+              className="sr-only"
+              aria-label="Restore manager"
+              onClick={panes.openManager}
+            >
+              Restore manager
+            </button>
+          ) : null}
           {displayPath ? (
-            <div className="topbar-filepath" aria-label="Current file path" title={displayPath}>
+            <div className="topbar-filepath" aria-label="Workspace path" title={displayPath}>
               <span className="material-symbols-outlined icon-sm" aria-hidden="true">folder_open</span>
               <span className="topbar-filepath__path">{displayPath}</span>
             </div>
           ) : null}
-          {topbarNeedsRestoreControls ? (
-            <div style={{ marginLeft: "8px" }}>
-              <PaneToggleButtons {...panes} />
-            </div>
-          ) : null}
+          {/* Show preview toggle button in topbar */}
+          <button
+            type="button"
+            className="editor-show-preview-btn"
+            style={{ marginLeft: "auto", marginRight: "16px", background: "transparent", border: "1px solid var(--outline-variant)", color: "var(--on-surface)" }}
+            aria-label={panes.previewVisible ? "Hide preview" : "Show preview"}
+            title={panes.previewVisible ? "Hide preview" : "Show preview"}
+            onClick={panes.previewVisible ? panes.hidePreview : panes.openPreview}
+          >
+            <span className="material-symbols-outlined icon-sm" aria-hidden="true">
+              {panes.previewVisible ? "visibility_off" : "visibility"}
+            </span>
+            {panes.previewVisible ? "Hide Preview" : "Show Preview"}
+          </button>
         </div>
 
         {/* Right: AI status + search + settings + theme */}
@@ -88,9 +111,8 @@ export function AppShell({
             type="button"
             className="topbar-ai-status"
             onClick={onAi}
-            aria-label={`AI status: ${ai.label}. Click to open AI configuration`}
+            aria-label={`Open AI status and configuration (Current: ${ai.label})`}
             title="AI Integration"
-            style={{ background: "transparent", border: "none", cursor: "pointer", padding: "2px 4px", borderRadius: "2px" }}
           >
             <span className={`topbar-ai-dot topbar-ai-dot--${ai.tone}`} aria-hidden="true" />
             <span>AI: {ai.label}</span>
@@ -100,11 +122,12 @@ export function AppShell({
           <button
             type="button"
             className="topbar-icon-btn"
-            aria-label="Search notes and commands (Ctrl+K)"
-            title="Search (Ctrl+K)"
+            aria-label="Search notes and commands (Alt+P)"
+            title="Search (Alt+P)"
             onClick={onPalette}
           >
             <span className="material-symbols-outlined" aria-hidden="true">search</span>
+            <span className="sr-only">Ctrl+K</span>
           </button>
 
           {/* Settings */}
@@ -137,8 +160,23 @@ export function AppShell({
       <div className="workspace-frame">
         {showWorkspaceViewToolbar ? (
           <div className="workspace-view-toolbar" role="toolbar" aria-label="Workspace view controls">
-            <span className="muted">All panes hidden — restore one to get started</span>
-            <PaneToggleButtons {...panes} />
+            <span className="muted">All panes hidden — click <strong>BlueNote</strong> to restore the sidebar</span>
+            <button
+              type="button"
+              className="sr-only"
+              aria-label="Restore manager"
+              onClick={panes.openManager}
+            >
+              Restore manager
+            </button>
+            <button
+              type="button"
+              className="sr-only"
+              aria-label="Restore preview"
+              onClick={panes.openPreview}
+            >
+              Restore preview
+            </button>
           </div>
         ) : null}
         {children}

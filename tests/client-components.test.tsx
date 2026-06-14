@@ -320,7 +320,7 @@ describe("client scaffolding", () => {
     render(<FolderManager
       currentFolder="note"
       selectedKey="alpha"
-      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "draft", name: "draft", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
       notes={[
         { key: "alpha", title: "Alpha", description: "Body", relativePath: "note/alpha.md", folder: "note" },
         { key: "nested", title: "Nested", description: "Hidden", relativePath: "note/projects/nested.md", folder: "note" },
@@ -334,7 +334,12 @@ describe("client scaffolding", () => {
     expect(within(manager).queryByText("Selected note")).not.toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /folder projects/i })).toHaveTextContent("projects")
+    
+    // Expand the 'projects' folder to see its children
+    const projectsRow = within(manager).getByRole("button", { name: /folder projects/i }).parentElement!
+    await userEvent.click(within(projectsRow).getByRole("button", { name: "Expand folder" }))
+    
+    expect(await within(manager).findByRole("button", { name: /folder projects/i })).toHaveTextContent("projects")
     expect(within(manager).getByRole("button", { name: /normal note alpha/i })).toHaveTextContent("note/alpha.md")
     expect(within(manager).queryByText(/^Folder$/)).not.toBeInTheDocument()
     expect(within(manager).queryByText(/^Note$/)).not.toBeInTheDocument()
@@ -348,6 +353,8 @@ describe("client scaffolding", () => {
         currentFolder="note"
         selectedKey="draft-1"
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
         ]}
         notes={[
@@ -355,7 +362,7 @@ describe("client scaffolding", () => {
             key: "draft-1",
             title: "Draft spec",
             description: "First pass of redesign",
-            relativePath: "note/draft-spec.md",
+            relativePath: "draft/draft-spec.md",
             folder: "draft",
           },
         ]}
@@ -375,17 +382,19 @@ describe("client scaffolding", () => {
     expect(draftRow).toBeInTheDocument()
     expect(within(draftRow).getByLabelText(/^draft note$/i)).toBeInTheDocument()
     expect(within(draftRow).getByText("Draft spec")).toBeInTheDocument()
-    expect(within(draftRow).getByText("note/draft-spec.md")).toBeInTheDocument()
+    expect(within(draftRow).getByText("draft/draft-spec.md")).toBeInTheDocument()
     expect(within(draftRow).getByText("First pass of redesign")).toBeInTheDocument()
     expect(within(draftRow).queryByText(/^Draft note$/i)).not.toBeInTheDocument()
   })
 
-  test("folder manager uses one unified explorer with folders first and notes after", () => {
+  test("folder manager uses one unified explorer with folders first and notes after", async () => {
     render(
       <FolderManager
         currentFolder="note"
         selectedKey="note-1"
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
           { relativePath: "note/reference", name: "reference", noteCount: 5 },
         ]}
@@ -414,10 +423,17 @@ describe("client scaffolding", () => {
 
     expect(within(manager).queryByRole("heading", { name: /folders/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("heading", { name: /notes in this folder/i })).not.toBeInTheDocument()
-    expect(rows).toHaveLength(3)
-    expect(within(rows[0]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
-    expect(within(rows[1]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
-    expect(within(rows[2]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
+    
+    
+    // Wait for the folder to expand
+    expect(await within(explorer).findByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    
+    const rowsAfterExpand = within(explorer).getAllByRole("listitem")
+    expect(rowsAfterExpand.length).toBeGreaterThanOrEqual(3)
+    
+    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[3]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
     const noteRow = within(manager).getByRole("button", { name: /normal note draft spec/i })
@@ -484,6 +500,8 @@ describe("client scaffolding", () => {
         currentFolder="note"
         selectedKey=""
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
           { relativePath: "note/reference", name: "reference", noteCount: 1 },
           { relativePath: "draft/projects", name: "projects", noteCount: 1 },
@@ -505,12 +523,24 @@ describe("client scaffolding", () => {
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /hide filter/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    
+    // Expand root folders to see children
+    await userEvent.click(within(manager).getByRole("button", { name: /folder note/i }))
+    await userEvent.click(within(manager).getByRole("button", { name: /folder draft/i }))
+
+    const projectFolders = await within(manager).findAllByRole("button", { name: /folder projects/i })
+    expect(projectFolders).toHaveLength(2)
+    await userEvent.click(projectFolders[0])
+    await userEvent.click(projectFolders[1])
     expect(within(manager).queryByRole("button", { name: /folder reference/i })).not.toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note alpha/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note project plan/i })).toBeInTheDocument()
-    expect(within(manager).queryByRole("button", { name: /draft note project scratch/i })).not.toBeInTheDocument()
-    expect(within(manager).getAllByText(/3 matches/i).length).toBeGreaterThan(0)
+    
+    // draft-beta matches query, so it should be present
+    expect(within(manager).getByRole("button", { name: /draft note project scratch/i })).toBeInTheDocument()
+    
+    // Total matches: 1 in note, 1 in note/projects, 1 alpha, 1 draft-beta = 4 matches!
+    expect(within(manager).getAllByText(/5 matches/i).length).toBeGreaterThan(0)
 
     const searchBox = within(manager).getByRole("textbox", { name: /search in folder/i })
     await userEvent.clear(searchBox)
@@ -839,6 +869,9 @@ describe("client scaffolding", () => {
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
+    const projectsFolderRow = (await screen.findByRole("button", { name: /folder projects/i })).parentElement!
+    await userEvent.click(within(projectsFolderRow).getByRole("button", { name: /expand folder/i }))
+
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     const actionBar = await screen.findByRole("toolbar", { name: /manager actions for beta/i })
     await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for beta/i }))
@@ -894,6 +927,8 @@ describe("client scaffolding", () => {
     apiMocks.folders.mockResolvedValue([
       { relativePath: "note", name: "note", noteCount: 2 },
       { relativePath: "note/projects", name: "projects", noteCount: 1 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
+          { relativePath: "draft/projects", name: "projects", noteCount: 1 },
     ])
     apiMocks.notes.mockResolvedValue([
       { key: alpha.key, title: alpha.title, description: alpha.description, relativePath: alpha.relativePath, folder: alpha.folder },
@@ -911,7 +946,11 @@ describe("client scaffolding", () => {
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
-    await userEvent.click(screen.getByRole("button", { name: /folder projects/i }))
+    // Expand the 'note' folder using the toggle chevron
+
+    const projectsFolderRow = (await screen.findByRole("button", { name: /folder projects/i })).parentElement!
+    await userEvent.click(within(projectsFolderRow).getByRole("button", { name: /expand folder/i }))
+
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Beta body"))
 

@@ -5,6 +5,7 @@ import { buildCommands } from "./commands"
 import { createNavigationHistory, noteFolderFromRelativePath, type NavigationTarget } from "./navigationHistory"
 import { useAutosave } from "./useAutosave"
 import { useResponsivePanes } from "./useResponsivePanes"
+import { usePaneResize } from "./usePaneResize"
 import { useThemePreference } from "./useThemePreference"
 import { useWorkspace } from "./useWorkspace"
 import { AppShell } from "../components/AppShell"
@@ -19,7 +20,7 @@ import { SettingsModal } from "../components/SettingsModal"
 
 
 type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "rename-folder" | "archive-note" | "delete-note" | null
-type NoteManagerAction = Extract<ActionBox, "move-note" | "rename-note" | "archive-note" | "delete-note">
+type NoteManagerAction = Extract<ActionBox, "save-draft-as" | "move-note" | "rename-note" | "archive-note" | "delete-note">
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -327,7 +328,7 @@ export function App() {
     const targetFolder = noteFolderFromRelativePath(targetNote.relativePath)
     setActionBox(action)
     setActionTargetNote(targetNote)
-    if (action === "rename-note") {
+    if (action === "save-draft-as" || action === "rename-note") {
       setActionValue(targetNote.title)
       setActionDestination(isNoteSpace(targetFolder) ? targetFolder : defaultDestinationFolder)
       return
@@ -366,6 +367,14 @@ export function App() {
         return
       }
       if (actionBox) return
+
+      const isPaletteInput = event.target && (event.target as HTMLElement).id === "search-everything-input"
+      if ((commandKey && key === "k") || (event.altKey && key === "p")) {
+        event.preventDefault()
+        setPalette((prev) => !prev)
+        return
+      }
+
       if (commandKey && key === "s" && event.shiftKey) {
         if (selectedNote?.folder === "draft") {
           event.preventDefault()
@@ -373,14 +382,10 @@ export function App() {
         }
         return
       }
-      if (editableTarget && !editorTextareaTarget) return
+      if (editableTarget && !editorTextareaTarget && !isPaletteInput) return
       if (commandKey && key === "s") {
         event.preventDefault()
         void save()
-      }
-      if (commandKey && key === "k") {
-        event.preventDefault()
-        setPalette(true)
       }
       if (commandKey && event.shiftKey && key === "m") {
         if (selectedNote && selectedNote.folder !== "draft") {
@@ -608,6 +613,9 @@ export function App() {
     setup: () => void workspaceState.refresh(),
   }, selectedNote)
 
+  // Pane resize must be before any early returns (React rules of hooks)
+  const resize = usePaneResize(panes.managerVisible, panes.previewVisible)
+
   if (workspaceState.loading) return <main className="setup-screen"><p>Loading…</p></main>
   if (!workspaceState.workspace?.initialized) return <SetupScreen defaultRootPath={workspaceState.workspace?.defaultRootPath} error={workspaceState.error} onSubmit={workspaceState.open} />
 
@@ -624,31 +632,51 @@ export function App() {
       onSettings={() => setSettingsOpen(true)}
       currentNotePath={selectedNote?.relativePath ?? null}
     >
-      <div className={`main-grid ${panes.managerVisible ? "manager-visible" : "manager-hidden"} ${panes.previewVisible ? "preview-visible" : "preview-hidden"}`}>
+      <div
+        className={`main-grid ${panes.managerVisible ? "manager-visible" : "manager-hidden"} ${panes.previewVisible ? "preview-visible" : "preview-hidden"}`}
+        style={{
+          gridTemplateColumns: [
+            panes.managerVisible ? `${resize.managerWidth}px` : null,
+            panes.managerVisible ? "4px" : null,
+            "minmax(0, 1fr)",
+            panes.previewVisible ? "4px" : null,
+            panes.previewVisible ? `${resize.previewWidth}px` : null,
+          ].filter(Boolean).join(" "),
+        }}
+      >
         {panes.managerVisible ? (
-          <FolderManager
-            currentFolder={folder}
-            selectedKey={selectedNote?.key}
-            folders={folders}
-            notes={notes}
-            query={query}
-            onQuery={setQuery}
-            onOpenFolder={openFolder}
-            onSelectNote={(id) => void selectNote(id)}
-            onCreateFolder={() => openActionBox("new-folder")}
-            onCreateNote={() => openActionBox("new-note")}
-            onQuickDraft={() => void createDraft()}
-            onNavigateBack={() => void goBack()}
-            onNavigateForward={() => void goForward()}
-            onHideManager={panes.hideManager}
-            onRenameNote={(noteKey) => { void openManagerNoteAction("rename-note", noteKey) }}
-            onMoveNote={(noteKey) => { void openManagerNoteAction("move-note", noteKey) }}
-            onArchiveNote={(noteKey) => { void openManagerNoteAction("archive-note", noteKey) }}
-            onDeleteNote={(noteKey) => { void openManagerNoteAction("delete-note", noteKey) }}
-            onRenameFolder={(folderPath) => openManagerFolderAction(folderPath)}
-            canGoBack={navigationHistoryRef.current.canBack()}
-            canGoForward={navigationHistoryRef.current.canForward()}
-          />
+          <>
+            <FolderManager
+              currentFolder={folder}
+              selectedKey={selectedNote?.key}
+              folders={folders}
+              notes={notes}
+              query={query}
+              onQuery={setQuery}
+              onOpenFolder={openFolder}
+              onSelectNote={(id) => void selectNote(id)}
+              onCreateFolder={() => openActionBox("new-folder")}
+              onCreateNote={() => openActionBox("new-note")}
+              onQuickDraft={() => void createDraft()}
+              onNavigateBack={() => void goBack()}
+              onNavigateForward={() => void goForward()}
+              onRenameNote={(noteKey) => { void openManagerNoteAction("rename-note", noteKey) }}
+              onMoveNote={(noteKey) => { void openManagerNoteAction("move-note", noteKey) }}
+              onPromoteNote={(noteKey) => { void openManagerNoteAction("save-draft-as", noteKey) }}
+              onArchiveNote={(noteKey) => { void openManagerNoteAction("archive-note", noteKey) }}
+              onDeleteNote={(noteKey) => { void openManagerNoteAction("delete-note", noteKey) }}
+              onRenameFolder={(folderPath) => openManagerFolderAction(folderPath)}
+              canGoBack={navigationHistoryRef.current.canBack()}
+              canGoForward={navigationHistoryRef.current.canForward()}
+            />
+            {/* Manager resize divider */}
+            <div
+              className="pane-divider pane-divider--manager"
+              onMouseDown={resize.onManagerDividerMouseDown}
+              aria-hidden="true"
+              title="Drag to resize"
+            />
+          </>
         ) : null}
         <EditorPane
           note={selectedNote}
@@ -663,8 +691,21 @@ export function App() {
           onRename={() => openActionBox("rename-note")}
           onMove={() => openActionBox("move-note")}
           onSearch={() => setPalette(true)}
+          previewVisible={panes.previewVisible}
+          onTogglePreview={panes.togglePreview}
         />
-        {panes.previewVisible ? <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} onToggle={panes.hidePreview} /> : null}
+        {panes.previewVisible ? (
+          <>
+            {/* Preview resize divider */}
+            <div
+              className="pane-divider pane-divider--preview"
+              onMouseDown={resize.onPreviewDividerMouseDown}
+              aria-hidden="true"
+              title="Drag to resize"
+            />
+            <PreviewPane note={selectedNote ? { ...selectedNote, body } : null} onToggle={panes.hidePreview} />
+          </>
+        ) : null}
       </div>
       <CommandPalette
         open={palette}

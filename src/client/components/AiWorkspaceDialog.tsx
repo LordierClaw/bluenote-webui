@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-
 import type {
   AiConfigView,
   AiProcessQueueResult,
@@ -26,34 +25,42 @@ type AiWorkspaceDialogProps = {
   onLogoutCodex: () => Promise<void> | void
 }
 
-type ViewTab = "status" | "queue" | "config" | "auth"
+type ViewTab = "status" | "config" | "queue" | "auth"
 
 function formatJobTime(value?: string): string {
-  if (!value) return "Unknown"
+  if (!value) return "—"
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
+  return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
-function summarizeQueueJobs(queue: AiQueueView | null) {
-  return (queue?.jobs ?? []).reduce((summary, job) => {
-    if (job.status === "running") summary.running += 1
-    else if (job.status === "failed") summary.failed += 1
-    else summary.pending += 1
-    return summary
-  }, { pending: 0, running: 0, failed: 0 })
+function jobStatusClass(status: string): string {
+  if (status === "running") return "is-running"
+  if (status === "failed") return "is-failed"
+  return "is-pending"
 }
 
-function statusTone(status: AiStatusSummary | null): "good" | "warn" | "error" | "idle" {
+function jobStatusIcon(status: string): string {
+  if (status === "running") return "sync"
+  if (status === "failed") return "error_outline"
+  return "pending"
+}
+
+function statusTone(status: AiStatusSummary | null): string {
   if (!status) return "idle"
-  if (status.status === "connected" || status.status === "running") return "good"
-  if (status.status === "auth-required" || status.status === "not-configured") return "warn"
-  if (status.status === "error") return "error"
+  if (status.status === "connected" || status.status === "running") return "ready"
+  if (status.status === "error") return "danger"
+  if (status.status === "not-configured" || status.status === "auth-required") return "warning"
   return "idle"
 }
 
-function jobStateLabel(job: AiQueueJobView): string {
-  return `${job.status} · attempts ${job.attempts}`
+function summarizeQueueJobs(queue: AiQueueView | null) {
+  return (queue?.jobs ?? []).reduce((s, job) => {
+    if (job.status === "running") s.running += 1
+    else if (job.status === "failed") s.failed += 1
+    else s.pending += 1
+    return s
+  }, { pending: 0, running: 0, failed: 0 })
 }
 
 export function AiWorkspaceDialog({
@@ -70,23 +77,26 @@ export function AiWorkspaceDialog({
   onStartCodexAuth,
   onLogoutCodex,
 }: AiWorkspaceDialogProps) {
-  const [provider, setProvider] = useState<"openai-compatible" | "codex">("openai-compatible")
+  const [tab, setTab] = useState<ViewTab>("status")
+  const [configMode, setConfigMode] = useState<"openai" | "codex">("openai")
   const [enabled, setEnabled] = useState(true)
   const [baseUrl, setBaseUrl] = useState("")
   const [apiKey, setApiKey] = useState("")
+  const [showApiKey, setShowApiKey] = useState(false)
   const [model, setModel] = useState("")
   const [maxAttempts, setMaxAttempts] = useState("3")
   const [outputLanguage, setOutputLanguage] = useState("English")
+  const [deviceCode, setDeviceCode] = useState("")
   const [notice, setNotice] = useState("")
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<ViewTab>("status")
 
   const queueSummary = useMemo(() => summarizeQueueJobs(queue), [queue])
   const combinedQueue = status?.queue ?? queueSummary
+  const jobs: AiQueueJobView[] = queue?.jobs ?? []
 
   useEffect(() => {
     if (!config) return
-    setProvider(config.provider ?? "openai-compatible")
+    setConfigMode(config.provider === "codex" ? "codex" : "openai")
     setEnabled(config.enabled ?? true)
     setBaseUrl(config.baseUrl ?? "")
     setApiKey("")
@@ -96,184 +106,369 @@ export function AiWorkspaceDialog({
   }, [config, open])
 
   useEffect(() => {
-    if (open) setTab("status")
+    if (open) { setTab("status"); setNotice("") }
   }, [open])
 
   async function run(task: () => Promise<void> | void) {
     setBusy(true)
-    try {
-      await task()
-    } finally {
-      setBusy(false)
-    }
-  }
+    try { await task() }
+    finally { setBusy(false) }
+  }  const tabs: { id: ViewTab; label: string; icon: string }[] = [
+    { id: "status", label: "Status", icon: "info" },
+    { id: "config", label: "Config", icon: "settings" },
+    { id: "queue", label: `Queue${jobs.length ? ` (${jobs.length})` : ""}`, icon: "queue" },
+    { id: "auth", label: "Auth", icon: "devices" },
+  ]
 
   return (
-    <ActionDialog title="AI background jobs and configuration" open={open} onClose={onClose} busy={busy} className="ai-workspace-dialog-shell">
-      <div className="ai-workspace-dialog">
-        <div className="ai-workspace-dialog__hero">
-          <div className="ai-workspace-dialog__intro">
-            <span className="note-command-surface__eyebrow">Background workflow</span>
-            <p>Keep AI off the writing surface. Inspect status, queue work, manage config, and refresh auth from one compact panel.</p>
-          </div>
-          <div className="ai-workspace-dialog__hero-metrics" role="list" aria-label="AI workspace summary">
-            <div className="ai-metric-card" role="listitem"><span>Queued</span><strong>{combinedQueue.pending ?? 0}</strong></div>
-            <div className="ai-metric-card" role="listitem"><span>Running</span><strong>{combinedQueue.running ?? 0}</strong></div>
-            <div className="ai-metric-card" role="listitem"><span>Failed</span><strong>{combinedQueue.failed ?? 0}</strong></div>
-          </div>
-        </div>
-
-        <div className="ai-tab-strip" role="tablist" aria-label="AI workspace sections">
-          {([
-            ["status", "Status"],
-            ["queue", "Queue"],
-            ["config", "Config"],
-            ["auth", "Auth"],
-          ] as const).map(([value, label]) => (
+    <ActionDialog
+      title="AI Integration"
+      ariaLabel="AI background jobs and configuration"
+      open={open}
+      onClose={onClose}
+      busy={busy}
+      className="ai-dialog-shell"
+    >
+      <div className="ai-dialog-layout">
+        {/* ── Tab nav ── */}
+        <div className="ai-tab-nav" role="tablist" aria-label="AI sections">
+          {tabs.map(({ id, label, icon }) => (
             <button
-              key={value}
+              key={id}
               type="button"
               role="tab"
-              aria-selected={tab === value}
-              className={tab === value ? "active" : undefined}
-              onClick={() => setTab(value)}
+              aria-selected={tab === id}
+              className={`ai-tab-btn${tab === id ? " active" : ""}`}
+              onClick={() => setTab(id)}
             >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">{icon}</span>
               {label}
             </button>
           ))}
         </div>
 
-        <div className="ai-tab-panel">
-          {tab === "status" ? (
-            <section className="ai-section">
-              <div className="ai-section-header">
-                <div>
-                  <strong>Background status</strong>
-                  <p className="muted">Live connection, provider health, and queue totals for this workspace.</p>
-                </div>
-                <button type="button" onClick={() => void run(async () => { await onRefresh(); setNotice("AI status refreshed.") })}>Refresh AI status</button>
-              </div>
-              <div className="ai-status-hero">
-                <div className={`ai-status-badge tone-${statusTone(status)}`}>
-                  <span className="ai-status-badge__label">State</span>
-                  <strong>{status?.status ?? "unknown"}</strong>
-                  <span className="muted">{status?.provider ?? "provider unknown"}{status?.model ? ` · ${status.model}` : ""}</span>
-                </div>
-                <div className="ai-status-grid" role="list" aria-label="AI queue summary">
-                  <div className="ai-metric-card" role="listitem"><span>Queued</span><strong>{combinedQueue.pending ?? 0}</strong></div>
-                  <div className="ai-metric-card" role="listitem"><span>Running</span><strong>{combinedQueue.running ?? 0}</strong></div>
-                  <div className="ai-metric-card" role="listitem"><span>Failed</span><strong>{combinedQueue.failed ?? 0}</strong></div>
-                </div>
-              </div>
-              {status?.message ? <p className="ai-inline-message">{status.message}</p> : null}
-            </section>
-          ) : null}
-
-          {tab === "queue" ? (
-            <section className="ai-section">
-              <div className="ai-section-header">
-                <div>
-                  <strong>Background jobs</strong>
-                  <p className="muted">Search-first queue management without taking over the editor or preview panes.</p>
-                </div>
-              </div>
-              <div className="ai-inline-actions">
-                <button type="button" onClick={() => void run(async () => { await onDescribeCurrentNote(); setNotice("Queued AI describe for the current note.") })}>Queue current note description</button>
-                <button type="button" onClick={() => void run(async () => {
-                  const result = await onProcessQueue()
-                  if (result) setNotice(`Processed queue: ${result.applied} applied, ${result.failed} failed, ${result.remaining} remaining.`)
-                })}>Run queued jobs</button>
-              </div>
-              {(queue?.jobs ?? []).length ? (
-                <ul className="ai-queue-list" aria-label="AI queued jobs">
-                  {(queue?.jobs ?? []).map((job) => (
-                    <li key={`${job.kind}:${job.key}`} className={`ai-queue-item is-${job.status}`}>
-                      <div>
-                        <strong>{job.relativePath}</strong>
-                        <span className="muted">{job.kind} · updated {formatJobTime(job.updatedAt)}</span>
-                      </div>
-                      <div className="ai-queue-item__meta">
-                        <span className="ai-job-state">{jobStateLabel(job)}</span>
-                        {job.lastError ? <span className="ai-job-error">{job.lastError}</span> : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No queued AI jobs right now.</p>
-              )}
-            </section>
-          ) : null}
-
-          {tab === "config" ? (
-            <section className="ai-section">
-              <div className="ai-section-header">
-                <div>
-                  <strong>Core-compatible configuration</strong>
-                  <p className="muted">These settings stay aligned with BlueNote core instead of creating a web-only AI mode.</p>
-                </div>
-              </div>
-              <div className="ai-config-form">
-                <label>
-                  <span>Provider</span>
-                  <select aria-label="Provider" value={provider} onChange={(event) => setProvider(event.target.value as "openai-compatible" | "codex")}>
-                    <option value="openai-compatible">openai-compatible</option>
-                    <option value="codex">codex</option>
-                  </select>
-                </label>
-                <label className="checkbox-row">
-                  <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-                  <span>Enabled</span>
-                </label>
-                {provider === "openai-compatible" ? (
-                  <>
-                    <label><span>Base URL</span><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" /></label>
-                    <label><span>API key</span><input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={config?.apiKeyMasked ?? "sk-..."} /></label>
-                  </>
-                ) : null}
-                <label><span>Model</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="gpt-5-codex" /></label>
-                <label><span>Max attempts</span><input value={maxAttempts} onChange={(event) => setMaxAttempts(event.target.value)} inputMode="numeric" /></label>
-                <label><span>Output language</span><input value={outputLanguage} onChange={(event) => setOutputLanguage(event.target.value)} /></label>
-              </div>
-              <button type="button" className="primary" onClick={() => void run(async () => {
-                await onSaveConfig({
-                  version: 1,
-                  enabled,
-                  provider,
-                  ...(provider === "openai-compatible" ? { baseUrl, apiKey: apiKey || undefined } : {}),
-                  model,
-                  logging: config?.logging ?? { usage: true, conversations: false, results: true },
-                  maxAttempts: Number(maxAttempts) || 3,
-                  outputLanguage,
-                })
-                setNotice("AI configuration saved.")
-              })}>Save AI config</button>
-            </section>
-          ) : null}
-
-          {tab === "auth" ? (
-            <section className="ai-section">
-              <div className="ai-section-header">
-                <div>
-                  <strong>Codex authentication</strong>
-                  <p className="muted">Refresh or replace Codex credentials without disturbing the editor state.</p>
-                </div>
-              </div>
-              <p className="muted">State: {codexAuth?.state ?? "unknown"}</p>
-              {codexAuth?.hint ? <p className="muted">{codexAuth.hint}</p> : null}
-              {codexAuth?.message ? <p className="muted">{codexAuth.message}</p> : null}
-              <div className="ai-inline-actions">
-                <button type="button" onClick={() => void run(async () => {
-                  const flow = await onStartCodexAuth()
-                  if (flow) setNotice(`Open ${flow.verificationUrl} and enter code ${flow.userCode}.`)
-                })}>Start Codex auth</button>
-                <button type="button" onClick={() => void run(async () => { await onLogoutCodex(); setNotice("Codex auth removed.") })}>Logout Codex</button>
-              </div>
-            </section>
-          ) : null}
+        {/* ── Status strip ── */}
+        <div className="ai-status-strip">
+          <span className={`ai-status-dot tone-${statusTone(status)}`} aria-hidden="true" />
+          <span className="ai-status-strip__text">
+            {status?.status ?? "unknown"}
+            {status?.provider ? ` · ${status.provider}` : ""}
+            {status?.model ? ` · ${status.model}` : ""}
+          </span>
+          <div style={{ flex: 1 }} />
+          <div className="ai-status-strip__metrics">
+            {combinedQueue.running > 0 && <span className="ai-queue-chip is-running">{combinedQueue.running} running</span>}
+            {combinedQueue.pending > 0 && <span className="ai-queue-chip is-pending">{combinedQueue.pending} queued</span>}
+            {combinedQueue.failed > 0 && <span className="ai-queue-chip is-failed">{combinedQueue.failed} failed</span>}
+          </div>
         </div>
 
-        {notice ? <p className="ai-notice">{notice}</p> : null}
+        {/* ── Tab panels ── */}
+        <div className="ai-tab-panel" role="tabpanel">
+          {/* STATUS TAB */}
+          {tab === "status" && (
+            <div className="ai-status-panel">
+              <div className="ai-workspace-dialog__hero">
+                <span className="material-symbols-outlined hero-icon" aria-hidden="true">smart_toy</span>
+                <div>
+                  <div className="hero-title">AI Workspace Integration</div>
+                  <div className="hero-subtitle">background status</div>
+                </div>
+              </div>
+
+              <div className="ai-status-details-card">
+                {status?.message && (
+                  <div className="ai-status-message-box">
+                    <span className="material-symbols-outlined icon-sm" aria-hidden="true">warning</span>
+                    <p>{status.message}</p>
+                  </div>
+                )}
+
+                <div className="ai-status-metrics-grid">
+                  <div className="metric-box">
+                    <span className="metric-val">{combinedQueue.pending}</span>
+                    <span className="metric-lbl">Pending Jobs</span>
+                  </div>
+                  <div className="metric-box">
+                    <span className="metric-val">{combinedQueue.running}</span>
+                    <span className="metric-lbl">Running Jobs</span>
+                  </div>
+                  <div className="metric-box">
+                    <span className="metric-val">{combinedQueue.failed}</span>
+                    <span className="metric-lbl">Failed Jobs</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void run(async () => { await onRefresh(); setNotice("Status refreshed.") })}
+                  aria-label="Refresh AI status"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  <span className="material-symbols-outlined icon-sm" aria-hidden="true">refresh</span>
+                  Refresh AI Status
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* CONFIG TAB */}
+          {tab === "config" && (
+            <div className="ai-config-panel">
+              {/* Mode selector as combobox */}
+              <div className="settings-field">
+                <label className="label-caps" htmlFor="ai-provider-select">Provider</label>
+                <select
+                  id="ai-provider-select"
+                  aria-label="Provider"
+                  className="ai-provider-select-box"
+                  value={configMode}
+                  onChange={(e) => setConfigMode(e.target.value as "openai" | "codex")}
+                >
+                  <option value="openai">openai-compatible</option>
+                  <option value="codex">codex</option>
+                </select>
+              </div>
+
+              {configMode === "openai" && (
+                <div className="ai-config-form" style={{ marginTop: "12px" }}>
+                  <div className="settings-toggle-row" style={{ border: "none", padding: "0 0 12px" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", color: "var(--on-surface)", fontFamily: "var(--font-display)", fontWeight: 500 }}>Enable AI Integration</div>
+                      <div style={{ fontSize: "12px", color: "var(--on-surface-variant)", marginTop: "2px" }}>Process background AI jobs for this workspace.</div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`toggle-btn${enabled ? " on" : ""}`}
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-label="Enable AI"
+                      onClick={() => setEnabled((v) => !v)}
+                    >
+                      <span className="toggle-knob" />
+                    </button>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="label-caps" htmlFor="ai-base-url">Base URL</label>
+                    <input
+                      id="ai-base-url"
+                      value={baseUrl}
+                      onChange={(e) => setBaseUrl(e.target.value)}
+                      placeholder="https://api.openai.com/v1"
+                    />
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="label-caps" htmlFor="ai-api-key">API Key</label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        id="ai-api-key"
+                        type={showApiKey ? "text" : "password"}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={config?.apiKeyMasked ?? "sk-..."}
+                        style={{ paddingRight: "40px" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey((v) => !v)}
+                        aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                        style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "var(--on-surface-variant)", cursor: "pointer", padding: "0", display: "flex", alignItems: "center" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "17px" }} aria-hidden="true">
+                          {showApiKey ? "visibility_off" : "visibility"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-grid-2">
+                    <div className="settings-field">
+                      <label className="label-caps" htmlFor="ai-model">Model</label>
+                      <input id="ai-model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
+                    </div>
+                    <div className="settings-field">
+                      <label className="label-caps" htmlFor="ai-max-attempts">Max Attempts</label>
+                      <input id="ai-max-attempts" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} inputMode="numeric" />
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="label-caps" htmlFor="ai-output-lang">Output Language</label>
+                    <input id="ai-output-lang" value={outputLanguage} onChange={(e) => setOutputLanguage(e.target.value)} />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => void run(async () => {
+                      await onSaveConfig({
+                        version: 1, enabled, provider: "openai-compatible",
+                        baseUrl, apiKey: apiKey || undefined,
+                        model, maxAttempts: Number(maxAttempts) || 3, outputLanguage,
+                        logging: config?.logging ?? { usage: true, conversations: false, results: true },
+                      })
+                      setNotice("Configuration saved.")
+                    })}
+                    style={{ marginTop: "4px", width: "100%", justifyContent: "center" }}
+                  >
+                    <span className="material-symbols-outlined icon-sm" aria-hidden="true">save</span>
+                    Save Configuration
+                  </button>
+                </div>
+              )}
+
+              {configMode === "codex" && (
+                <div className="ai-config-form" style={{ marginTop: "12px" }}>
+                  <div className="ai-codex-info">
+                    <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "32px", color: "var(--primary)", flexShrink: 0 }}>devices</span>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--on-surface)", fontFamily: "var(--font-display)" }}>Codex Device Authentication</div>
+                      <div style={{ fontSize: "12px", color: "var(--on-surface-variant)", marginTop: "4px", lineHeight: "1.5" }}>
+                        Authenticate using a device code flow. Select "Auth" tab or use device flow configuration to authenticate.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* QUEUE TAB */}
+          {tab === "queue" && (
+            <div className="ai-queue-panel">
+              <div className="ai-queue-toolbar">
+                <button
+                  type="button"
+                  onClick={() => void run(async () => { await onDescribeCurrentNote(); setNotice("Queued AI describe for current note.") })}
+                >
+                  <span className="material-symbols-outlined icon-sm" aria-hidden="true">add_task</span>
+                  Queue describe
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  aria-label="Run queued jobs"
+                  onClick={() => void run(async () => {
+                    const result = await onProcessQueue()
+                    if (result) setNotice(`Applied ${result.applied}, failed ${result.failed}, remaining ${result.remaining}.`)
+                  })}
+                >
+                  <span className="material-symbols-outlined icon-sm" aria-hidden="true">play_arrow</span>
+                  Run queued jobs
+                </button>
+              </div>
+
+              {jobs.length > 0 ? (
+                <div className="ai-queue-list-wrapper">
+                  <ul className="ai-queue-table" role="list" aria-label="AI queued jobs" style={{ padding: 0, listStyle: "none" }}>
+                    {/* Header */}
+                    <div className="ai-queue-row ai-queue-row--header" role="row">
+                      <div role="columnheader" className="ai-queue-col col-no">#</div>
+                      <div role="columnheader" className="ai-queue-col col-action">Action</div>
+                      <div role="columnheader" className="ai-queue-col col-status">Status</div>
+                      <div role="columnheader" className="ai-queue-col col-updated">Updated</div>
+                    </div>
+                    {/* Rows */}
+                    {jobs.map((job, i) => (
+                      <li
+                        key={`${job.kind}:${job.key}`}
+                        className={`ai-queue-row ${jobStatusClass(job.status)}`}
+                        role="listitem"
+                      >
+                        <div role="cell" className="ai-queue-col col-no">{i + 1}</div>
+                        <div role="cell" className="ai-queue-col col-action">
+                          <span className="material-symbols-outlined icon-sm" aria-hidden="true">{jobStatusIcon(job.status)}</span>
+                          <span>{job.relativePath}</span>
+                          <span className="ai-queue-kind">{job.kind}</span>
+                        </div>
+                        <div role="cell" className="ai-queue-col col-status">
+                          <span className={`ai-queue-status-badge ${jobStatusClass(job.status)}`}>{job.status}</span>
+                          {job.attempts > 1 && <span className="ai-queue-attempts">×{job.attempts}</span>}
+                          {job.lastError && <span className="ai-queue-error" title={job.lastError}>!</span>}
+                        </div>
+                        <div role="cell" className="ai-queue-col col-updated">{formatJobTime(job.updatedAt)}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="ai-queue-empty">
+                  <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "40px", color: "var(--outline)" }}>check_circle</span>
+                  <p>No jobs in the queue</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AUTH TAB */}
+          {tab === "auth" && (
+            <div className="ai-auth-panel">
+              <div className="ai-codex-info">
+                <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "32px", color: "var(--primary)", flexShrink: 0 }}>devices</span>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--on-surface)", fontFamily: "var(--font-display)" }}>Codex Device Authentication</div>
+                  <div style={{ fontSize: "12px", color: "var(--on-surface-variant)", marginTop: "4px", lineHeight: "1.5" }}>
+                    Authenticate using a device code flow. Click "Start Codex Auth" to get a verification URL and code.
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-field" style={{ marginTop: "12px" }}>
+                <label className="label-caps">Current State</label>
+                <div className="ai-codex-state-pill">
+                  <span className={`ai-status-dot tone-${codexAuth?.state === "authenticated" ? "ready" : "idle"}`} aria-hidden="true" />
+                  {codexAuth?.state ?? "unknown"}
+                  {codexAuth?.hint ? <span style={{ color: "var(--on-surface-variant)" }}> · {codexAuth.hint}</span> : null}
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <label className="label-caps" htmlFor="ai-device-code">Device Code (placeholder)</label>
+                <input
+                  id="ai-device-code"
+                  value={deviceCode}
+                  onChange={(e) => setDeviceCode(e.target.value)}
+                  placeholder="Enter code from verification URL..."
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  aria-label="Start Codex Auth"
+                  style={{ flex: 1, justifyContent: "center" }}
+                  onClick={() => void run(async () => {
+                    const flow = await onStartCodexAuth()
+                    if (flow) setNotice(`Open ${flow.verificationUrl} and enter code: ${flow.userCode}`)
+                  })}
+                >
+                  <span className="material-symbols-outlined icon-sm" aria-hidden="true">login</span>
+                  Start Codex Auth
+                </button>
+                <button
+                  type="button"
+                  style={{ flex: 1, justifyContent: "center" }}
+                  onClick={() => void run(async () => { await onLogoutCodex(); setNotice("Logged out.") })}
+                >
+                  <span className="material-symbols-outlined icon-sm" aria-hidden="true">logout</span>
+                  Logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Notice ── */}
+        {notice ? (
+          <div className="ai-notice" role="status" aria-live="polite">
+            <span className="material-symbols-outlined icon-sm" aria-hidden="true">info</span>
+            {notice}
+          </div>
+        ) : null}
       </div>
     </ActionDialog>
   )

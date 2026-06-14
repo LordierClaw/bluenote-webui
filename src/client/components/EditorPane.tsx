@@ -14,6 +14,9 @@ type EditorPaneProps = {
   onRename?: () => void
   onMove?: () => void
   onSearch?: () => void
+  // Preview toggle
+  previewVisible?: boolean
+  onTogglePreview?: () => void
 }
 
 type CursorState = {
@@ -57,6 +60,8 @@ export function EditorPane({
   saveState,
   onBodyChange,
   onSave,
+  previewVisible,
+  onTogglePreview,
 }: EditorPaneProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const bodyId = useId()
@@ -66,6 +71,8 @@ export function EditorPane({
   const updatedAt = formatTimestamp(note?.updatedAt ?? note?.createdAt)
   const lineCount = useMemo(() => (body.length ? body.split("\n").length : 1), [body])
   const compactStatus = compactStatusLabel(dirty, saveState)
+  const noteKind = note?.folder === "draft" ? "Draft" : note ? "Note" : "Workspace"
+  const statusLabel = dirty ? "Unsaved changes" : saveState
   const wordCount = useMemo(() => {
     const trimmed = body.trim()
     return trimmed ? trimmed.split(/\s+/).length : 0
@@ -81,21 +88,30 @@ export function EditorPane({
     <section className="editor-pane" aria-label="Editor">
       {/* ── Editor Header ── */}
       <header className="editor-header">
-        {/* Title – matches Stitch "Deep Work Session" editable header */}
-        <input
-          className="editor-title-input"
-          type="text"
-          readOnly
-          value={note?.title ?? ""}
-          placeholder="No note selected"
-          aria-label="Note title"
-        />
-        {/* Timestamp right-aligned */}
+        {/* Note title */}
+        <h1 className="editor-title-h1" aria-label={note?.title ?? "No note selected"}>
+          <input
+            className="editor-title-input"
+            type="text"
+            readOnly
+            value={note?.title ?? ""}
+            placeholder="No note selected"
+            aria-label="Document heading"
+          />
+        </h1>
+
+        {note?.relativePath ? (
+          <span className="sr-only">{note.relativePath}</span>
+        ) : null}
+
+        {/* Timestamp */}
         {updatedAt ? (
           <span className="editor-timestamp" aria-label={`Last updated ${updatedAt}`}>
             Updated {updatedAt}
           </span>
         ) : null}
+
+        {/* (Show Preview button removed) */}
       </header>
 
       {/* ── Editor Body ── */}
@@ -129,8 +145,10 @@ export function EditorPane({
         id={`${bodyId}-status`}
         aria-label="Editor status bar"
       >
-        {/* Left: position + line count + word count */}
         <div className="editor-status-bar__tokens">
+          <span className="editor-status-token">{noteKind}</span>
+          <span className="editor-status-token">{statusLabel}</span>
+          <span className="editor-status-token">Lines {lineCount}</span>
           <span className="editor-status-token">Ln {cursor.line}, Col {cursor.column}</span>
           <span className="editor-status-token">Words: {wordCount}</span>
           {cursor.selectionLength > 0 ? (
@@ -138,16 +156,14 @@ export function EditorPane({
           ) : null}
         </div>
 
-        {/* Right: controls */}
         <div className="editor-status-bar__actions">
           <button
             type="button"
             className="editor-status-action"
             onClick={() => setWrapEnabled((v) => !v)}
-            aria-label={wrapEnabled ? "Disable word wrap" : "Enable word wrap"}
             aria-pressed={wrapEnabled}
           >
-            Wrap: {wrapEnabled ? "On" : "Off"}
+            Wrap {wrapEnabled ? "On" : "Off"}
           </button>
           <span className="editor-status-sep" aria-hidden="true" />
           <button
@@ -155,7 +171,7 @@ export function EditorPane({
             className="editor-status-action"
             onClick={onSave}
             disabled={!note || !dirty}
-            aria-label="Save note (Ctrl+S)"
+            aria-label="Save (Ctrl+S)"
             title="Save (Ctrl+S)"
           >
             {compactStatus}

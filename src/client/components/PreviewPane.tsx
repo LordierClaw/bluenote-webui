@@ -45,17 +45,6 @@ export function PreviewPane({ note, visible = true, onToggle }: PreviewPaneProps
             <span className="material-symbols-outlined" aria-hidden="true">lock</span>
             Read-only
           </span>
-          {onToggle ? (
-            <button
-              type="button"
-              className="preview-pane__toggle"
-              onClick={onToggle}
-              aria-label="Hide preview pane"
-            >
-              <span className="material-symbols-outlined icon-sm" aria-hidden="true">visibility_off</span>
-              <span>Hide</span>
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -63,6 +52,9 @@ export function PreviewPane({ note, visible = true, onToggle }: PreviewPaneProps
       {note ? (
         <div className="preview-pane__body">
           <article className="preview-pane__article">
+            <header className="preview-pane__context">
+              <p className="preview-pane__context-path">{note.relativePath}</p>
+            </header>
             <MarkdownPreview body={note.body} />
           </article>
         </div>

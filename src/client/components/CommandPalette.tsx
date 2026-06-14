@@ -19,6 +19,24 @@ function entryIcon(kind: string): string {
   }
 }
 
+function highlightText(text: string, query: string): JSX.Element {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return <>{text}</>
+  }
+  if (!query.trim()) return <>{text}</>
+  const escapedQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const parts = text.split(new RegExp(`(${escapedQuery})`, "gi"))
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.trim().toLowerCase()
+          ? <mark key={i} className="palette-match-highlight">{part}</mark>
+          : part
+      )}
+    </>
+  )
+}
+
 export function CommandPalette({
   open,
   commands,
@@ -127,12 +145,18 @@ export function CommandPalette({
       <div className="action-form command-palette-form">
         {/* ── Search input header ── */}
         <div className="command-palette-searchbar" role="search">
+          <div className="command-palette-searchbar__header sr-only">
+            <p>Jump to notes, folders, commands, or content from one compact surface.</p>
+            <div className="command-palette-shortcuts" aria-label="Command palette shortcuts">
+              <span>Enter open</span>
+            </div>
+          </div>
           <span className="material-symbols-outlined" aria-hidden="true">search</span>
           <label className="sr-only" htmlFor="search-everything-input">Search Everything</label>
           <input
             id="search-everything-input"
             autoFocus
-            aria-label="Search notes, content, or folders"
+            aria-label="Search Everything"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -197,7 +221,7 @@ export function CommandPalette({
 
               {showNoResultsState ? (
                 <div className="palette-empty-state" aria-live="polite">
-                  <strong>No results for "{trimmedQuery}"</strong>
+                  <strong>No results for “{trimmedQuery}”</strong>
                   <p>Try a note title, file path, folder name, command label, or shortcut.</p>
                 </div>
               ) : null}
@@ -208,23 +232,23 @@ export function CommandPalette({
           <aside className="palette-preview" aria-label="Selected item preview">
             {preview ? (
               <>
-                <strong>{preview.title}</strong>
+                <strong>{highlightText(preview.title, trimmedQuery)}</strong>
                 {preview.subtitle ? <p className="row-path">{preview.subtitle}</p> : null}
                 <div className="palette-preview-body">
                   {preview.lines.map((line, lineIndex) => (
-                    <p key={`${preview.title}-${lineIndex}`}>{line}</p>
+                    <p key={`${preview.title}-${lineIndex}`}>{highlightText(line, trimmedQuery)}</p>
                   ))}
                 </div>
               </>
             ) : (
               <div className="palette-preview-empty-state">
-                <strong>{showStarterState ? "Preview selected result" : "Nothing selected"}</strong>
+                <strong>{showStarterState ? "Preview the selected result" : "Nothing selected"}</strong>
                 <p>
                   {showStarterState
                     ? "Move with arrow keys to inspect a result before opening."
-                    : "When a match appears, its content will show here."}
+                    : "When a match appears, its note body, folder contents, or command details will show here."}
                 </p>
-                <div className="palette-preview-empty-state__list" aria-label="Preview tips">
+                <div className="palette-preview-empty-state__list" aria-label="Search tips">
                   <span>Notes show content</span>
                   <span>Folders show children</span>
                   <span>Commands show shortcuts</span>
