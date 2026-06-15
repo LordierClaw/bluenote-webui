@@ -288,10 +288,10 @@ describe("client scaffolding", () => {
     const manager = screen.getByRole("region", { name: /note navigation/i })
     expect(within(manager).getByRole("button", { name: /folder note$/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /folder draft$/i })).toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /new folder/i })).toBeEnabled()
+    expect(within(manager).getByRole("button", { name: /new note or folder/i })).toBeEnabled()
   })
 
-  test("folder manager enables subfolder creation only inside note folders", () => {
+  test("folder manager enables subfolder creation only inside note folders", async () => {
     const { rerender } = render(<FolderManager
       currentFolder="draft"
       selectedKey=""
@@ -301,7 +301,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    expect(screen.getByRole("button", { name: /new folder/i })).toBeDisabled()
+    let manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeDisabled()
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
 
     rerender(<FolderManager
       currentFolder="notebook"
@@ -312,7 +315,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    expect(screen.getByRole("button", { name: /new folder/i })).toBeDisabled()
+    manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeDisabled()
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
 
     rerender(<FolderManager
       currentFolder="note/projects"
@@ -323,9 +329,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    const manager = screen.getByRole("region", { name: /note navigation/i })
-    const explorerActions = within(manager).getByRole("toolbar", { name: /explorer actions/i })
-    expect(within(explorerActions).getByRole("button", { name: /new folder/i })).toBeEnabled()
+    manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeEnabled()
+    expect(within(manager).queryByRole("toolbar", { name: /explorer actions/i })).not.toBeInTheDocument()
   })
 
   test("folder manager uses icon-led metadata rows inside the explorer", async () => {
@@ -482,19 +489,10 @@ describe("client scaffolding", () => {
     )
 
     const actionBar = screen.getByRole("toolbar", { name: /manager actions for alpha/i })
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-
-    const actionGroup = await screen.findByRole("group", { name: /actions for alpha/i })
-    await userEvent.click(within(actionGroup).getByRole("button", { name: /rename note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /move note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /archive note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /delete note/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^rename$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^move$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^archive$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^delete$/i }))
 
     expect(onRenameNote).toHaveBeenCalledWith("alpha")
     expect(onMoveNote).toHaveBeenCalledWith("alpha")
@@ -502,6 +500,7 @@ describe("client scaffolding", () => {
     expect(onDeleteNote).toHaveBeenCalledWith("alpha")
     expect(onSelectNote).not.toHaveBeenCalled()
     expect(screen.queryByRole("group", { name: /actions for alpha/i })).not.toBeInTheDocument()
+    expect(within(actionBar).queryByRole("button", { name: /open actions for alpha/i })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /move note scratch/i })).not.toBeInTheDocument()
   })
 
@@ -1116,9 +1115,7 @@ describe("client scaffolding", () => {
     expect(screen.queryByRole("button", { name: /folder projects/i })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     const actionBar = await screen.findByRole("toolbar", { name: /manager actions for beta/i })
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for beta/i }))
-    const actionGroup = await screen.findByRole("group", { name: /actions for beta/i })
-    await userEvent.click(within(actionGroup).getByRole("button", { name: /rename note/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^rename$/i }))
 
     const dialog = await screen.findByRole("dialog", { name: /rename note/i })
     expect(dialog).toBeInTheDocument()

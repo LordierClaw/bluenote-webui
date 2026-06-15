@@ -297,7 +297,6 @@ export function FolderManager({
   canGoForward = false,
 }: FolderManagerProps) {
   const [newDropdownOpen, setNewDropdownOpen] = useState(false)
-  const [openActions, setOpenActions] = useState(false)
 
   const explorerParent = normalized(currentFolder)
   const explorerParentParent = parentOf(explorerParent)
@@ -418,18 +417,6 @@ export function FolderManager({
           title="New quick draft"
         >
           <span className="material-symbols-outlined" aria-hidden="true">edit_note</span>
-        </button>
-      </div>
-
-      {/* Hidden explorer actions toolbar to satisfy test expectations */}
-      <div className="sr-only" role="toolbar" aria-label="explorer actions">
-        <button
-          type="button"
-          aria-label="New folder"
-          disabled={!isNoteSpace(currentFolder)}
-          onClick={onCreateFolder}
-        >
-          New folder
         </button>
       </div>
 
@@ -585,34 +572,6 @@ export function FolderManager({
               <span>Delete</span>
             </button>
           </div>
-
-          {/* Hidden toggle and action group to satisfy legacy test assertions */}
-          <button
-            type="button"
-            className="sr-only"
-            aria-label={`open actions for ${selectedNote.title}`}
-            onClick={() => setOpenActions((v) => !v)}
-          >
-            Open actions
-          </button>
-          {openActions && (
-            <div
-              className="sr-only"
-              role="group"
-              aria-label={`actions for ${selectedNote.title}`}
-            >
-              <button type="button" onClick={() => { setOpenActions(false); onRenameNote?.(selectedNote.key) }}>rename note</button>
-              {selectedNote.folder === "draft" ? (
-                <button type="button" onClick={() => { setOpenActions(false); onPromoteNote?.(selectedNote.key) }}>save draft as note</button>
-              ) : (
-                <>
-                  <button type="button" onClick={() => { setOpenActions(false); onMoveNote?.(selectedNote.key) }}>move note</button>
-                  <button type="button" onClick={() => { setOpenActions(false); onArchiveNote?.(selectedNote.key) }}>archive note</button>
-                </>
-              )}
-              <button type="button" onClick={() => { setOpenActions(false); onDeleteNote?.(selectedNote.key) }}>delete note</button>
-            </div>
-          )}
         </div>
       ) : explorerParent && isNoteSpace(explorerParent) ? (
         <div className="manager-context-bar" role="toolbar" aria-label={`manager actions for ${explorerParent.split("/").filter(Boolean).at(-1) ?? explorerParent} folder`}>
