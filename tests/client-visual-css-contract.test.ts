@@ -79,9 +79,11 @@ describe("visual CSS layout contracts", () => {
     expect(rootToken(":root", "--surface-muted")).toBe("#eef2f7")
     expect(rootToken(":root", "--surface-raised")).toBe("#fcfdff")
     expect(rootToken(":root", "--line")).toBe("#c6d2df")
+    expect(rootToken(":root", "--error-container")).toBe("#fee2e2")
     expect(rootToken(":root[data-theme=\"dark\"]", "--surface")).toBe("#0f172a")
     expect(rootToken(":root[data-theme=\"dark\"]", "--surface-raised")).toBe("#10182b")
     expect(rootToken(":root[data-theme=\"dark\"]", "--line")).toBe("#243244")
+    expect(rootToken(":root[data-theme=\"dark\"]", "--error-container")).toBe("#93000a")
   })
 
   test("raised controls and editing surfaces derive elevation from theme shadow tokens", () => {
