@@ -260,6 +260,24 @@ describe("runWebCommand", () => {
     expect(stdout.text()).not.toContain("env-token")
   })
 
+  test("daemon smoke mode ignores unrelated invalid server port defaults", async () => {
+    const stdout = bufferedOutput()
+    const stderr = bufferedOutput()
+
+    const result = await withFakeDaemon((_request, response) => {
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ ok: true }))
+    }, async (daemonUrl) => runWebCommand(["--check-daemon", "--daemon-url", daemonUrl], {
+      env: { PORT: "not-a-port", BLUENOTE_WEBUI_PORT: "also-not-a-port" },
+      stdout: stdout.output,
+      stderr: stderr.output,
+    }))
+
+    expect(result).toBe(0)
+    expect(stdout.text()).toContain("BlueNote daemon check passed")
+    expect(stderr.text()).toBe("")
+  })
+
   test("fails daemon smoke mode when daemon is unreachable", async () => {
     const stdout = bufferedOutput()
     const stderr = bufferedOutput()

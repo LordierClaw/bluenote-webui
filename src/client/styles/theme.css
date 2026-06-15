@@ -1691,7 +1691,7 @@ div.command-palette-shell .action-box-body {
   .editor-textarea, .editor-underlay { padding: 16px; }
 }
 
-@media (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .main-grid.manager-visible {
     grid-template-columns: var(--sidebar-w) 4px minmax(0, 1fr) !important;
   }

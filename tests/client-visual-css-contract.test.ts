@@ -130,7 +130,7 @@ describe("visual CSS layout contracts", () => {
   })
 
   test("tablet manager layout keeps divider columns aligned with rendered children", () => {
-    expect(themeCss).toMatch(/@media \(max-width: 1023px\) \{[\s\S]*\.main-grid\.manager-visible \{[\s\S]*grid-template-columns:\s*var\(--sidebar-w\)\s+4px\s+minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.main-grid\.manager-hidden \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.pane-divider--preview \{\s*display:\s*none\s*!important;/s)
+    expect(themeCss).toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.main-grid\.manager-visible \{[\s\S]*grid-template-columns:\s*var\(--sidebar-w\)\s+4px\s+minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.main-grid\.manager-hidden \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.pane-divider--preview \{\s*display:\s*none\s*!important;/s)
   })
 
   test("editor canvas remains dominant", () => {
