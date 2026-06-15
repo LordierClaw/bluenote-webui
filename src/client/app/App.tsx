@@ -26,6 +26,7 @@ type NoteManagerAction = Extract<ActionBox, "save-draft-as" | "move-note" | "ren
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable || target.closest('[contenteditable="true"], [contenteditable=""]')) return true
+  if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.readOnly) return false
   const tagName = target.tagName.toLowerCase()
   return tagName === "input" || tagName === "textarea" || tagName === "select"
 }

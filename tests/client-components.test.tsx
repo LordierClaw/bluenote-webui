@@ -942,6 +942,10 @@ describe("client scaffolding", () => {
     const input = document.createElement("input")
     const textarea = document.createElement("textarea")
     const select = document.createElement("select")
+    const readonlyInput = document.createElement("input")
+    readonlyInput.readOnly = true
+    const readonlyTextarea = document.createElement("textarea")
+    readonlyTextarea.readOnly = true
     const editable = document.createElement("div")
     editable.setAttribute("contenteditable", "true")
     const button = document.createElement("button")
@@ -949,6 +953,8 @@ describe("client scaffolding", () => {
     expect(isEditableTarget(input)).toBe(true)
     expect(isEditableTarget(textarea)).toBe(true)
     expect(isEditableTarget(select)).toBe(true)
+    expect(isEditableTarget(readonlyInput)).toBe(false)
+    expect(isEditableTarget(readonlyTextarea)).toBe(false)
     expect(isEditableTarget(editable)).toBe(true)
     expect(isEditableTarget(button)).toBe(false)
     expect(isEditableTarget(null)).toBe(false)
@@ -999,6 +1005,26 @@ describe("client scaffolding", () => {
 
     await userEvent.keyboard("{F2}")
     expect(await screen.findByRole("dialog", { name: /rename note/i })).toBeInTheDocument()
+  })
+
+  test("read-only editor title does not block app shortcuts", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    const title = screen.getByRole("textbox", { name: /document heading/i })
+    await userEvent.click(title)
+    expect(title).toHaveFocus()
+
+    await userEvent.keyboard("{F2}")
+    expect(await screen.findByRole("dialog", { name: /rename note/i })).toBeInTheDocument()
+
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument())
+
+    await userEvent.click(title)
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Save from title focus")
+    await userEvent.click(title)
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await waitFor(() => expect(apiMocks.updateNote).toHaveBeenCalledWith("note-1", { body: "Save from title focus" }))
   })
 
   test("manager rename actions stay local to the targeted note", async () => {
