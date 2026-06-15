@@ -920,6 +920,36 @@ describe("client scaffolding", () => {
     expect(screen.queryByText("2 of 1")).not.toBeInTheDocument()
   })
 
+  test("editor replace all treats replacement dollar sequences literally", async () => {
+    function Harness() {
+      const [body, setBody] = useState("alpha alpha")
+      return (
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body, updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body={body}
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={setBody}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    await userEvent.type(await screen.findByPlaceholderText(/find/i), "alpha")
+    await userEvent.type(screen.getByPlaceholderText(/replace/i), "$& $1 $$")
+    await userEvent.click(screen.getByRole("button", { name: /replace all/i }))
+
+    await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("$& $1 $$ $& $1 $$"))
+  })
+
   test("action dialog closes with Escape and backdrop click, but not inside clicks", async () => {
     const onClose = vi.fn()
     render(<ActionDialog title="Rename note" open onClose={onClose}><button>Inside action</button></ActionDialog>)

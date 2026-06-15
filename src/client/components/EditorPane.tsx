@@ -195,7 +195,7 @@ export function EditorPane({
   function replaceAllMatches() {
     if (matches.length === 0) return
     const escapedQuery = findQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    const newBody = body.replace(new RegExp(escapedQuery, "gi"), replaceQuery)
+    const newBody = body.replace(new RegExp(escapedQuery, "gi"), () => replaceQuery)
     onBodyChange(newBody)
     setTimeout(() => textareaRef.current?.focus(), 0)
   }
