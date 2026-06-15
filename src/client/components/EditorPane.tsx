@@ -53,6 +53,12 @@ function compactStatusLabel(dirty: boolean, saveState: string): string {
   return saveState === "Loaded" ? "Saved" : saveState
 }
 
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName.toLowerCase()
+  return target.isContentEditable || tag === "input" || tag === "select" || tag === "textarea"
+}
+
 export function EditorPane({
   note,
   body,
@@ -112,6 +118,7 @@ export function EditorPane({
       if (!note) return
       // Ctrl+F or Cmd+F
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        if (isEditableElement(e.target) && e.target !== textareaRef.current) return
         e.preventDefault()
         setShowFindReplace(true)
         setTimeout(() => {

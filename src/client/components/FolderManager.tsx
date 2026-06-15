@@ -300,6 +300,8 @@ export function FolderManager({
   const [openActions, setOpenActions] = useState(false)
 
   const explorerParent = normalized(currentFolder)
+  const explorerParentParent = parentOf(explorerParent)
+  const explorerParentLabel = explorerParentParent || "workspace root"
 
   // Root folders for the current directory
   const rootFolders = useMemo(() => {
@@ -456,6 +458,31 @@ export function FolderManager({
 
       {/* ── Tree View ── */}
       <div className="navigation-list tree-view" role="list" aria-label="Explorer items">
+        {explorerParent ? (
+          <div role="listitem" className="tree-row tree-row--folder tree-row--parent" style={{ paddingLeft: "8px" }}>
+            <button
+              type="button"
+              className="tree-toggle tree-toggle--leaf"
+              tabIndex={-1}
+              aria-label="Parent folder"
+              onClick={() => onOpenFolder(explorerParentParent)}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "14px" }}>
+                arrow_upward
+              </span>
+            </button>
+            <button
+              type="button"
+              className="tree-row__folder-btn"
+              aria-label={`parent folder ${explorerParentLabel}`}
+              onClick={() => onOpenFolder(explorerParentParent)}
+            >
+              <span className="material-symbols-outlined tree-row__icon" aria-hidden="true">drive_folder_upload</span>
+              <span className="tree-row__label">..</span>
+              <span className="tree-row__count">{explorerParentLabel}</span>
+            </button>
+          </div>
+        ) : null}
         {rootFolders.map((folder) => (
           <TreeFolder
             key={folder.relativePath}

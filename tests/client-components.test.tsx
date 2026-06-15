@@ -443,9 +443,10 @@ describe("client scaffolding", () => {
     const rowsAfterExpand = within(explorer).getAllByRole("listitem")
     expect(rowsAfterExpand.length).toBeGreaterThanOrEqual(3)
     
-    expect(within(rowsAfterExpand[0]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
-    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
-    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[0]).getByRole("button", { name: /parent folder workspace root/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[3]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
     const noteRow = within(manager).getByRole("button", { name: /normal note draft spec/i })
@@ -742,6 +743,28 @@ describe("client scaffolding", () => {
     expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
   })
 
+  test("folder manager keeps parent navigation visible from nested active folders", async () => {
+    const onOpenFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note/projects"
+      selectedKey=""
+      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }, { relativePath: "note/projects/archive", name: "archive", noteCount: 1 }]}
+      notes={[{ key: "nested", title: "Nested", description: "", relativePath: "note/projects/nested.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }]}
+      onOpenFolder={onOpenFolder}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /parent folder note/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /folder archive/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note nested/i })).toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /^folder projects$/i })).not.toBeInTheDocument()
+
+    await userEvent.click(within(manager).getByRole("button", { name: /parent folder note/i }))
+    expect(onOpenFolder).toHaveBeenCalledWith("note")
+  })
+
   test("navigation history derives note folders from startup note relative paths", () => {
     expect(noteFolderFromRelativePath("note/alpha.md")).toBe("note")
     expect(noteFolderFromRelativePath("note/projects/alpha.md")).toBe("note/projects")
@@ -802,6 +825,36 @@ describe("client scaffolding", () => {
     expect(screen.getByLabelText(/editor status bar/i)).toHaveTextContent(/lines 1/i)
     expect(screen.getByLabelText(/editor status bar/i)).toHaveTextContent(/ln 1, col 1/i)
     expect(screen.getByRole("button", { name: /wrap on/i })).toBeInTheDocument()
+  })
+
+  test("editor find shortcut ignores non-editor inputs", async () => {
+    render(
+      <div>
+        <input aria-label="External search" />
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body: "alpha beta", updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body="alpha beta"
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={() => undefined}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      </div>,
+    )
+
+    const externalInput = screen.getByRole("textbox", { name: /external search/i })
+    await userEvent.click(externalInput)
+    fireEvent.keyDown(externalInput, { key: "f", ctrlKey: true })
+    expect(screen.queryByPlaceholderText(/find/i)).not.toBeInTheDocument()
+
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    expect(await screen.findByPlaceholderText(/find/i)).toBeInTheDocument()
   })
 
   test("action dialog closes with Escape and backdrop click, but not inside clicks", async () => {
