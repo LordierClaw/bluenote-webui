@@ -231,25 +231,25 @@ export function AiWorkspaceDialog({
                 </select>
               </div>
 
+              <div className="settings-toggle-row" style={{ border: "none", padding: "0 0 12px" }}>
+                <div>
+                  <div style={{ fontSize: "13px", color: "var(--on-surface)", fontFamily: "var(--font-display)", fontWeight: 500 }}>Enable AI Integration</div>
+                  <div style={{ fontSize: "12px", color: "var(--on-surface-variant)", marginTop: "2px" }}>Process background AI jobs for this workspace.</div>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn${enabled ? " on" : ""}`}
+                  role="switch"
+                  aria-checked={enabled}
+                  aria-label="Enable AI"
+                  onClick={() => setEnabled((v) => !v)}
+                >
+                  <span className="toggle-knob" />
+                </button>
+              </div>
+
               {configMode === "openai" && (
                 <div className="ai-config-form" style={{ marginTop: "12px" }}>
-                  <div className="settings-toggle-row" style={{ border: "none", padding: "0 0 12px" }}>
-                    <div>
-                      <div style={{ fontSize: "13px", color: "var(--on-surface)", fontFamily: "var(--font-display)", fontWeight: 500 }}>Enable AI Integration</div>
-                      <div style={{ fontSize: "12px", color: "var(--on-surface-variant)", marginTop: "2px" }}>Process background AI jobs for this workspace.</div>
-                    </div>
-                    <button
-                      type="button"
-                      className={`toggle-btn${enabled ? " on" : ""}`}
-                      role="switch"
-                      aria-checked={enabled}
-                      aria-label="Enable AI"
-                      onClick={() => setEnabled((v) => !v)}
-                    >
-                      <span className="toggle-knob" />
-                    </button>
-                  </div>
-
                   <div className="settings-field">
                     <label className="label-caps" htmlFor="ai-base-url">Base URL</label>
                     <input

@@ -182,7 +182,7 @@ function TreeFolder({
           <span className="tree-row__label">{folder.name}</span>
           {folder.noteCount > 0 && <span className="tree-row__count">{folder.noteCount}</span>}
         </button>
-        {onRenameFolder ? (
+        {onRenameFolder && isNoteSpace(folder.relativePath) ? (
           <button
             type="button"
             className="tree-row__action"

@@ -617,7 +617,7 @@ describe("client scaffolding", () => {
         open
         onClose={onClose}
         status={{ status: "auth-required", provider: "codex", model: "gpt-5-codex", queue: { pending: 2, running: 0, failed: 1 }, message: "Authentication required before background jobs can run." }}
-        config={{ configured: true, enabled: true, provider: "codex", model: "gpt-5-codex", logging: { usage: true, conversations: false, results: true }, maxAttempts: 3, outputLanguage: "English" }}
+        config={{ configured: true, enabled: false, provider: "codex", model: "gpt-5-codex", logging: { usage: true, conversations: false, results: true }, maxAttempts: 3, outputLanguage: "English" }}
         queue={{ jobs: [{ kind: "describe-note", key: "alpha", relativePath: "note/alpha.md", status: "pending", attempts: 0, lastError: null, updatedAt: new Date().toISOString() }] }}
         codexAuth={{ state: "setup-required" }}
         onSaveConfig={onSaveConfig}
@@ -639,8 +639,10 @@ describe("client scaffolding", () => {
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /config/i }))
     expect(within(dialog).getByRole("combobox", { name: /provider/i })).toHaveValue("codex")
+    expect(within(dialog).getByRole("switch", { name: /enable ai/i })).toHaveAttribute("aria-checked", "false")
+    await userEvent.click(within(dialog).getByRole("switch", { name: /enable ai/i }))
     await userEvent.click(within(dialog).getByRole("button", { name: /save configuration/i }))
-    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ provider: "codex", model: "gpt-5-codex" }))
+    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, provider: "codex", model: "gpt-5-codex" }))
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /queue/i }))
     expect(within(dialog).getByRole("list", { name: /ai queued jobs/i })).toBeInTheDocument()
@@ -708,7 +710,7 @@ describe("client scaffolding", () => {
     render(<FolderManager
       currentFolder="draft"
       selectedKey=""
-      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
       notes={[]}
       onOpenFolder={() => undefined}
       onSelectNote={() => undefined}
@@ -723,8 +725,11 @@ describe("client scaffolding", () => {
     await userEvent.click(newFolder)
     expect(onCreateFolder).not.toHaveBeenCalled()
 
-    await userEvent.click(within(manager).getByRole("button", { name: /rename draft folder/i }))
-    expect(onRenameFolder).toHaveBeenCalledWith("draft")
+    expect(within(manager).queryByRole("button", { name: /rename draft folder/i })).not.toBeInTheDocument()
+
+    await userEvent.click(within(manager).getByRole("button", { name: /folder note/i }))
+    await userEvent.click(within(manager).getByRole("button", { name: /rename projects folder/i }))
+    expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
   })
 
   test("navigation history derives note folders from startup note relative paths", () => {
