@@ -633,9 +633,18 @@ describe("client scaffolding", () => {
     await userEvent.click(within(dialog).getByRole("tab", { name: /config/i }))
     expect(within(dialog).getByRole("combobox", { name: /provider/i })).toHaveValue("codex")
     expect(within(dialog).getByRole("switch", { name: /enable ai/i })).toHaveAttribute("aria-checked", "false")
+    const codexModel = within(dialog).getByRole("textbox", { name: /model/i })
+    const codexOutputLanguage = within(dialog).getByRole("textbox", { name: /output language/i })
+    const codexMaxAttempts = within(dialog).getByLabelText(/max attempts/i)
+    await userEvent.clear(codexModel)
+    await userEvent.type(codexModel, "gpt-5-codex-mini")
+    await userEvent.clear(codexMaxAttempts)
+    await userEvent.type(codexMaxAttempts, "5")
+    await userEvent.clear(codexOutputLanguage)
+    await userEvent.type(codexOutputLanguage, "Spanish")
     await userEvent.click(within(dialog).getByRole("switch", { name: /enable ai/i }))
     await userEvent.click(within(dialog).getByRole("button", { name: /save configuration/i }))
-    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, provider: "codex", model: "gpt-5-codex" }))
+    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, provider: "codex", model: "gpt-5-codex-mini", maxAttempts: 5, outputLanguage: "Spanish" }))
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /queue/i }))
     expect(within(dialog).getByRole("list", { name: /ai queued jobs/i })).toBeInTheDocument()
@@ -874,6 +883,42 @@ describe("client scaffolding", () => {
     await userEvent.click(noteBody)
     fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
     expect(await screen.findByPlaceholderText(/find/i)).toBeInTheDocument()
+  })
+
+  test("editor clamps active find match after replacing the last match", async () => {
+    function Harness() {
+      const [body, setBody] = useState("alpha beta alpha")
+      return (
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body, updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body={body}
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={setBody}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    const findInput = await screen.findByPlaceholderText(/find/i)
+    await userEvent.type(findInput, "alpha")
+    expect(screen.getByText("1 of 2")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByTitle(/next/i))
+    expect(screen.getByText("2 of 2")).toBeInTheDocument()
+    await userEvent.type(screen.getByPlaceholderText(/replace/i), "omega")
+    await userEvent.click(screen.getByRole("button", { name: /^replace$/i }))
+
+    await waitFor(() => expect(screen.getByText("1 of 1")).toBeInTheDocument())
+    expect(screen.queryByText("2 of 1")).not.toBeInTheDocument()
   })
 
   test("action dialog closes with Escape and backdrop click, but not inside clicks", async () => {

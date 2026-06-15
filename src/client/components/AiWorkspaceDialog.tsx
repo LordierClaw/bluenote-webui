@@ -331,6 +331,21 @@ export function AiWorkspaceDialog({
                       </div>
                     </div>
                   </div>
+                  <div className="settings-grid-2">
+                    <div className="settings-field">
+                      <label className="label-caps" htmlFor="ai-codex-model">Model</label>
+                      <input id="ai-codex-model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-5-codex" />
+                    </div>
+                    <div className="settings-field">
+                      <label className="label-caps" htmlFor="ai-codex-max-attempts">Max Attempts</label>
+                      <input id="ai-codex-max-attempts" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} inputMode="numeric" />
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="label-caps" htmlFor="ai-codex-output-lang">Output Language</label>
+                    <input id="ai-codex-output-lang" value={outputLanguage} onChange={(e) => setOutputLanguage(e.target.value)} />
+                  </div>
                   <button
                     type="button"
                     className="btn-primary"

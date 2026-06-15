@@ -146,6 +146,15 @@ export function EditorPane({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [note, showFindReplace, nextMatch, prevMatch])
 
+  // Keep the active match index valid after replacements change the match set
+  useEffect(() => {
+    if (matches.length === 0) {
+      if (currentMatchIndex !== 0) setCurrentMatchIndex(0)
+      return
+    }
+    if (currentMatchIndex >= matches.length) setCurrentMatchIndex(matches.length - 1)
+  }, [currentMatchIndex, matches.length])
+
   // Scroll to active match when it changes
   useEffect(() => {
     if (showFindReplace && matches.length > 0) {
