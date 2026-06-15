@@ -299,19 +299,19 @@ export function FolderManager({
   const [newDropdownOpen, setNewDropdownOpen] = useState(false)
   const [openActions, setOpenActions] = useState(false)
 
+  const explorerParent = normalized(currentFolder)
+
   // Root folders for the current directory
   const rootFolders = useMemo(() => {
-    const parent = ""
-    const raw = folders.filter((f) => parentOf(f.relativePath) === parent)
+    const raw = folders.filter((f) => parentOf(f.relativePath) === explorerParent)
     if (!query) return raw
     return raw.filter((f) => folderMatchesQueryOrHasDescendants(f, folders, notes, query))
-  }, [folders, notes, query])
+  }, [explorerParent, folders, notes, query])
 
   const rootNotes = useMemo(() => {
-    const parent = ""
-    const raw = notes.filter((n) => parentOf(n.relativePath) === parent)
+    const raw = notes.filter((n) => parentOf(n.relativePath) === explorerParent)
     return query ? filterNotes(raw, query) : raw
-  }, [notes, query])
+  }, [explorerParent, notes, query])
 
   const selectedNote = notes.find((n) => n.key === selectedKey)
 
@@ -328,7 +328,7 @@ export function FolderManager({
     if (!activeSearch) return 0
     let count = 0
     const q = query.toLowerCase()
-    const parent = ""
+    const parent = explorerParent
     
     for (const f of folders) {
       const fPath = normalized(f.relativePath)
@@ -341,7 +341,7 @@ export function FolderManager({
       if (isDescendant && `${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q)) count++
     }
     return count
-  }, [folders, notes, activeSearch, query])
+  }, [explorerParent, folders, notes, activeSearch, query])
 
   return (
     <section className="folder-manager" aria-label="Note navigation">

@@ -364,7 +364,7 @@ describe("client scaffolding", () => {
   test("folder manager note rows expose explorer metadata without visible kind pills", () => {
     render(
       <FolderManager
-        currentFolder="note"
+        currentFolder="draft"
         selectedKey="draft-1"
         folders={[
           { relativePath: "note", name: "note", noteCount: 2 },
@@ -443,9 +443,9 @@ describe("client scaffolding", () => {
     const rowsAfterExpand = within(explorer).getAllByRole("listitem")
     expect(rowsAfterExpand.length).toBeGreaterThanOrEqual(3)
     
-    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
-    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
-    expect(within(rowsAfterExpand[3]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[0]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
     const noteRow = within(manager).getByRole("button", { name: /normal note draft spec/i })
@@ -536,23 +536,15 @@ describe("client scaffolding", () => {
     expect(within(manager).queryByRole("button", { name: /hide filter/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
     
-    // Expand root folders to see children
-    await userEvent.click(within(manager).getByRole("button", { name: /folder note/i }))
-    await userEvent.click(within(manager).getByRole("button", { name: /folder draft/i }))
-
     const projectFolders = await within(manager).findAllByRole("button", { name: /folder projects/i })
-    expect(projectFolders).toHaveLength(2)
+    expect(projectFolders).toHaveLength(1)
     await userEvent.click(projectFolders[0])
-    await userEvent.click(projectFolders[1])
     expect(within(manager).queryByRole("button", { name: /folder reference/i })).not.toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /folder draft/i })).not.toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note alpha/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note project plan/i })).toBeInTheDocument()
-    
-    // draft-beta matches query, so it should be present
-    expect(within(manager).getByRole("button", { name: /draft note project scratch/i })).toBeInTheDocument()
-    
-    // Total matches: 1 in note, 1 in note/projects, 1 alpha, 1 draft-beta = 4 matches!
-    expect(within(manager).getAllByText(/5 matches/i).length).toBeGreaterThan(0)
+    expect(within(manager).queryByRole("button", { name: /draft note project scratch/i })).not.toBeInTheDocument()
+    expect(within(manager).getAllByText(/3 matches/i).length).toBeGreaterThan(0)
 
     const searchBox = within(manager).getByRole("textbox", { name: /search in folder/i })
     await userEvent.clear(searchBox)
@@ -703,7 +695,7 @@ describe("client scaffolding", () => {
     expect(onNavigateForward).toHaveBeenCalledTimes(1)
   })
 
-  test("folder manager disables folder creation outside note space and exposes folder rename", async () => {
+  test("folder manager disables folder creation outside note space and hides non-note-space rename", async () => {
     const onCreateFolder = vi.fn()
     const onRenameFolder = vi.fn()
 
@@ -724,10 +716,28 @@ describe("client scaffolding", () => {
     expect(newFolder).toBeDisabled()
     await userEvent.click(newFolder)
     expect(onCreateFolder).not.toHaveBeenCalled()
-
     expect(within(manager).queryByRole("button", { name: /rename draft folder/i })).not.toBeInTheDocument()
+  })
 
-    await userEvent.click(within(manager).getByRole("button", { name: /folder note/i }))
+  test("folder manager derives explorer items from the active folder", async () => {
+    const onRenameFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note"
+      selectedKey=""
+      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }, { relativePath: "note/projects/archive", name: "archive", noteCount: 1 }]}
+      notes={[{ key: "root", title: "Root", description: "", relativePath: "note/root.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }, { key: "nested", title: "Nested", description: "", relativePath: "note/projects/nested.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note root/i })).toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /folder draft/i })).not.toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /normal note nested/i })).not.toBeInTheDocument()
+
     await userEvent.click(within(manager).getByRole("button", { name: /rename projects folder/i }))
     expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
   })
@@ -939,14 +949,7 @@ describe("client scaffolding", () => {
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
-    const projectsFolderRow = (await screen.findByRole("button", { name: /folder projects/i })).parentElement!
-    const expandProjects = within(projectsFolderRow).queryByRole("button", { name: /expand folder/i })
-    if (expandProjects) {
-      await userEvent.click(expandProjects)
-    } else {
-      expect(within(projectsFolderRow).getByRole("button", { name: /collapse folder/i })).toBeInTheDocument()
-    }
-
+    expect(screen.queryByRole("button", { name: /folder projects/i })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     const actionBar = await screen.findByRole("toolbar", { name: /manager actions for beta/i })
     await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for beta/i }))
