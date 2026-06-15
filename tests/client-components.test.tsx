@@ -1104,12 +1104,18 @@ describe("client scaffolding", () => {
     const settingsDialog = await screen.findByRole("dialog", { name: /settings/i })
     settingsDialog.focus()
 
+    const saveEvent = new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true })
+    const historyEvent = new KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true, cancelable: true })
+    expect(window.dispatchEvent(saveEvent)).toBe(false)
+    expect(window.dispatchEvent(historyEvent)).toBe(false)
     await userEvent.keyboard("{Control>}s{/Control}")
     await userEvent.keyboard("{Control>}k{/Control}")
     await userEvent.keyboard("{Alt>}p{/Alt}")
     await userEvent.keyboard("{F2}")
     await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")
 
+    expect(saveEvent.defaultPrevented).toBe(true)
+    expect(historyEvent.defaultPrevented).toBe(true)
     expect(apiMocks.updateNote).not.toHaveBeenCalled()
     expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument()
     expect(screen.queryByRole("dialog", { name: /search and commands/i })).not.toBeInTheDocument()

@@ -2444,10 +2444,25 @@ button.danger:hover:not(:disabled) { background: rgba(147, 0, 10, 0.6); }
 
 @media (max-width: 920px) {
   .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
+    height: auto;
+    min-height: var(--topbar-h);
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
-  .topbar-workspace {
+  .topbar-left {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    flex: 1 1 100%;
+    width: 100%;
+    gap: 8px 12px;
+  }
+  .topbar-filepath {
     grid-column: 1 / -1;
+  }
+  .editor-show-preview-btn {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    justify-self: end;
   }
   .main-grid.manager-hidden.preview-visible {
     grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.5fr);

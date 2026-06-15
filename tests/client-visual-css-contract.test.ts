@@ -128,7 +128,7 @@ describe("visual CSS layout contracts", () => {
   })
 
   test("tablet-width shell keeps the workspace path on its own row and preserves an editor-first split", () => {
-    expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-workspace \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
+    expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*flex-wrap:\s*wrap;[\s\S]*\.topbar-left \{[\s\S]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-filepath \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
   })
 
   test("tablet manager layout does not override resizable grid columns", () => {

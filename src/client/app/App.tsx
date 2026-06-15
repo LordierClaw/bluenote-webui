@@ -367,7 +367,18 @@ export function App() {
         }
         return
       }
-      if (actionBox || settingsOpen) return
+      if (settingsOpen) {
+        if (
+          (commandKey && (key === "s" || key === "k")) ||
+          (commandKey && event.shiftKey && key === "m") ||
+          (event.altKey && (key === "p" || event.key === "ArrowLeft" || event.key === "ArrowRight")) ||
+          event.key === "F2"
+        ) {
+          event.preventDefault()
+        }
+        return
+      }
+      if (actionBox) return
 
       if (editableTarget && !editorTextareaTarget) return
 
