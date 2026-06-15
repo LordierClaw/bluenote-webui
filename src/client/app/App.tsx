@@ -367,7 +367,7 @@ export function App() {
         }
         return
       }
-      if (actionBox) return
+      if (actionBox || settingsOpen) return
 
       if (editableTarget && !editorTextareaTarget) return
 
@@ -409,7 +409,7 @@ export function App() {
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [actionBox, closeActionBox, goBack, goForward, openActionBox, palette, save, selectedNote])
+  }, [actionBox, closeActionBox, goBack, goForward, openActionBox, palette, save, selectedNote, settingsOpen])
 
   const activeActionNote = actionTargetNote ?? selectedNote
 

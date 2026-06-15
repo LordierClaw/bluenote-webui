@@ -1094,6 +1094,29 @@ describe("client scaffolding", () => {
     expect(screen.getByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
   })
 
+  test("settings modal blocks app shell shortcuts", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Settings draft")
+    apiMocks.updateNote.mockClear()
+
+    await userEvent.click(screen.getByRole("button", { name: /open settings/i }))
+    const settingsDialog = await screen.findByRole("dialog", { name: /settings/i })
+    settingsDialog.focus()
+
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await userEvent.keyboard("{Control>}k{/Control}")
+    await userEvent.keyboard("{Alt>}p{/Alt}")
+    await userEvent.keyboard("{F2}")
+    await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")
+
+    expect(apiMocks.updateNote).not.toHaveBeenCalled()
+    expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /search and commands/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /move note/i })).not.toBeInTheDocument()
+  })
+
   test("editor textarea keeps advertised move and rename shortcuts active", async () => {
     const { textarea } = await renderAppWithStartupNote()
     await userEvent.click(textarea)
