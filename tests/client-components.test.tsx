@@ -670,7 +670,9 @@ describe("client scaffolding", () => {
     expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, provider: "codex", model: "gpt-5-codex-mini", maxAttempts: 5, outputLanguage: "Spanish" }))
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /queue/i }))
-    expect(within(dialog).getByRole("list", { name: /ai queued jobs/i })).toBeInTheDocument()
+    const queueTable = within(dialog).getByRole("table", { name: /ai queued jobs/i })
+    expect(within(queueTable).getByRole("columnheader", { name: /action/i })).toBeInTheDocument()
+    expect(within(queueTable).getAllByRole("row")).toHaveLength(2)
     expect(within(dialog).getByText(/note\/alpha\.md/i)).toBeInTheDocument()
     await userEvent.click(within(dialog).getByRole("button", { name: /run queued jobs/i }))
     expect(onProcessQueue).toHaveBeenCalledTimes(1)

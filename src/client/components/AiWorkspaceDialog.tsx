@@ -394,7 +394,7 @@ export function AiWorkspaceDialog({
 
               {jobs.length > 0 ? (
                 <div className="ai-queue-list-wrapper">
-                  <ul className="ai-queue-table" role="list" aria-label="AI queued jobs" style={{ padding: 0, listStyle: "none" }}>
+                  <div className="ai-queue-table" role="table" aria-label="AI queued jobs">
                     {/* Header */}
                     <div className="ai-queue-row ai-queue-row--header" role="row">
                       <div role="columnheader" className="ai-queue-col col-no">#</div>
@@ -404,10 +404,10 @@ export function AiWorkspaceDialog({
                     </div>
                     {/* Rows */}
                     {jobs.map((job, i) => (
-                      <li
+                      <div
                         key={`${job.kind}:${job.key}`}
                         className={`ai-queue-row ${jobStatusClass(job.status)}`}
-                        role="listitem"
+                        role="row"
                       >
                         <div role="cell" className="ai-queue-col col-no">{i + 1}</div>
                         <div role="cell" className="ai-queue-col col-action">
@@ -421,9 +421,9 @@ export function AiWorkspaceDialog({
                           {job.lastError && <span className="ai-queue-error" title={job.lastError}>!</span>}
                         </div>
                         <div role="cell" className="ai-queue-col col-updated">{formatJobTime(job.updatedAt)}</div>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               ) : (
                 <div className="ai-queue-empty">
