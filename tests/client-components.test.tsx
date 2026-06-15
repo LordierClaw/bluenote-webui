@@ -573,6 +573,7 @@ describe("client scaffolding", () => {
     const manager = screen.getByRole("region", { name: /note navigation/i })
     expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /folder client/i })).toBeInTheDocument()
+    expect(within(manager).getAllByText(/1 match/i).length).toBeGreaterThan(0)
   })
 
   test("folder manager expands matching descendant notes while filtering collapsed folders", () => {
