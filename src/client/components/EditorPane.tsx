@@ -115,7 +115,6 @@ export function EditorPane({
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (!note) return
       const shortcutKey = e.key.toLowerCase()
       const commandKey = e.ctrlKey || e.metaKey
       const modalOpen = document.querySelector('[role="dialog"]') !== null
@@ -123,6 +122,7 @@ export function EditorPane({
         e.preventDefault()
         return
       }
+      if (!note) return
       // Ctrl+F or Cmd+F
       if (commandKey && shortcutKey === "f") {
         if (isEditableElement(e.target) && e.target !== textareaRef.current) return

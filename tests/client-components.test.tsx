@@ -908,6 +908,37 @@ describe("client scaffolding", () => {
     expect(await screen.findByPlaceholderText(/find/i)).toBeInTheDocument()
   })
 
+  test("editor find shortcuts are consumed behind dialogs even without an active note", () => {
+    render(
+      <>
+        <ActionDialog open title="Settings" onClose={() => undefined}>Settings</ActionDialog>
+        <EditorPane
+          note={null}
+          body=""
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={() => undefined}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      </>,
+    )
+
+    const findEvent = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true })
+    const findNextEvent = new KeyboardEvent("keydown", { key: "g", ctrlKey: true, cancelable: true })
+    const f3Event = new KeyboardEvent("keydown", { key: "F3", cancelable: true })
+    expect(window.dispatchEvent(findEvent)).toBe(false)
+    expect(window.dispatchEvent(findNextEvent)).toBe(false)
+    expect(window.dispatchEvent(f3Event)).toBe(false)
+    expect(findEvent.defaultPrevented).toBe(true)
+    expect(findNextEvent.defaultPrevented).toBe(true)
+    expect(f3Event.defaultPrevented).toBe(true)
+    expect(screen.queryByPlaceholderText(/find/i)).not.toBeInTheDocument()
+  })
+
   test("editor clamps active find match after replacing the last match", async () => {
     function Harness() {
       const [body, setBody] = useState("alpha beta alpha")
