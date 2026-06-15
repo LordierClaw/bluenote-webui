@@ -7,6 +7,7 @@ export function ActionDialog({
   onClose,
   busy = false,
   className,
+  ariaLabel,
 }: {
   open: boolean
   title: string
@@ -14,6 +15,7 @@ export function ActionDialog({
   onClose: () => void
   busy?: boolean
   className?: string
+  ariaLabel?: string
 }) {
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
@@ -90,7 +92,7 @@ export function ActionDialog({
         className={`action-box${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={ariaLabel || title}
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
@@ -99,11 +101,11 @@ export function ActionDialog({
           <button
             type="button"
             className="action-box-close"
-            aria-label={`Close ${title}`}
+            aria-label={`Close ${ariaLabel || title}`}
             onClick={() => requestClose()}
             disabled={busy}
           >
-            ×
+            <span className="material-symbols-outlined" aria-hidden="true">close</span>
           </button>
         </div>
         <div className="action-box-body">{children}</div>

@@ -160,7 +160,7 @@ function parseWebCommand(args: string[], env: Partial<Record<string, string | un
     throw new Error(`Unknown option: ${arg}`)
   }
 
-  if (parsed.port === undefined && !parsed.help && !parsed.version) {
+  if (parsed.port === undefined && !parsed.help && !parsed.version && !parsed.checkDaemon) {
     parsed.port = parsePort(env.PORT ?? env.BLUENOTE_WEBUI_PORT ?? String(DEFAULT_PORT), "port")
   }
 

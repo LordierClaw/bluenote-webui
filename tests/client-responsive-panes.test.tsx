@@ -73,6 +73,18 @@ describe("useResponsivePanes", () => {
     expect(screen.getByTestId("preview-auto-hidden")).toHaveTextContent("false")
   })
 
+  test("preview defaults match the mobile CSS breakpoint boundary", () => {
+    setViewportWidth(767)
+    render(<ResponsivePanesHarness />)
+    expect(screen.getByTestId("preview-visible")).toHaveTextContent("false")
+    expect(screen.getByTestId("preview-auto-hidden")).toHaveTextContent("true")
+
+    setViewportWidth(768)
+    fireEvent(window, new Event("resize"))
+    expect(screen.getByTestId("preview-visible")).toHaveTextContent("true")
+    expect(screen.getByTestId("preview-auto-hidden")).toHaveTextContent("false")
+  })
+
   test("opening manager at medium-narrow width swaps out preview instead of creating three cramped panes", () => {
     setViewportWidth(820)
     render(<ResponsivePanesHarness />)

@@ -1,26 +1,7 @@
-import { useEffect, useState } from "react"
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import {
-  faArrowRightArrowLeft,
-  faBoxArchive,
-  faCaretLeft,
-  faCaretRight,
-  faEllipsis,
-  faFileLines,
-  faFilePen,
-  faFolder,
-  faFolderOpen,
-  faFolderTree,
-  faMagnifyingGlass,
-  faPenToSquare,
-  faPlus,
-  faTrashCan,
-} from "@fortawesome/free-solid-svg-icons"
+import { useEffect, useMemo, useState } from "react"
 import type { FolderView, NoteSummaryView, SearchResultView } from "../../shared/types"
-import { ActionDialog } from "./ActionDialog"
 
 type NoteListItem = NoteSummaryView | SearchResultView
-
 type NoteActionHandler = (noteKey: string) => void
 type FolderActionHandler = (folderPath: string) => void
 
@@ -33,69 +14,25 @@ function parentOf(relativePath: string): string {
   return parts.slice(0, -1).join("/")
 }
 
-function isDirectChild(relativePath: string, currentFolder: string): boolean {
-  const current = normalized(currentFolder)
-  return parentOf(relativePath) === current && normalized(relativePath) !== current
-}
-
-function isWithinFolder(relativePath: string, currentFolder: string): boolean {
-  const current = normalized(currentFolder)
-  const candidate = normalized(relativePath)
-  if (!current) return true
-  return candidate === current || candidate.startsWith(`${current}/`)
-}
-
 function isNoteSpace(relativePath: string): boolean {
   const current = normalized(relativePath)
   return current === "" || current === "note" || current.startsWith("note/")
 }
 
-function visibleFolders(folders: FolderView[], currentFolder: string, query: string): FolderView[] {
-  const needle = query.trim().toLowerCase()
-  return folders
-    .filter((folder) => needle ? isWithinFolder(folder.relativePath, currentFolder) : isDirectChild(folder.relativePath, currentFolder))
-    .filter((folder) => normalized(folder.relativePath) !== normalized(currentFolder))
-    .filter((folder) => !needle || `${folder.name} ${folder.relativePath}`.toLowerCase().includes(needle))
+function childFoldersOf(folders: FolderView[], parentPath: string): FolderView[] {
+  const parent = normalized(parentPath)
+  return folders.filter((f) => parentOf(f.relativePath) === parent)
 }
 
-function visibleNotes(notes: NoteListItem[], currentFolder: string, query: string): NoteListItem[] {
-  const needle = query.trim().toLowerCase()
-  return notes
-    .filter((note) => needle ? isWithinFolder(note.relativePath, currentFolder) : isDirectChild(note.relativePath, currentFolder))
-    .filter((note) => !needle || `${note.title} ${note.description} ${note.relativePath}`.toLowerCase().includes(needle))
+function childNotesOf(notes: NoteListItem[], parentPath: string): NoteListItem[] {
+  const parent = normalized(parentPath)
+  return notes.filter((n) => parentOf(n.relativePath) === parent)
 }
 
-function breadcrumb(relativePath: string): string[] {
-  const parts = normalized(relativePath).split("/").filter(Boolean)
-  return ["", ...parts.map((_, index) => parts.slice(0, index + 1).join("/"))]
-}
-
-function crumbLabel(crumb: string): string {
-  return crumb ? crumb.split("/").at(-1) ?? crumb : "Workspace"
-}
-
-function filenameOf(relativePath: string): string {
-  return relativePath.split("/").filter(Boolean).at(-1) ?? relativePath
-}
-
-function noteKindLabel(note: NoteListItem): string {
-  return note.folder === "draft" ? "Draft note" : "Normal note"
-}
-
-function folderIconLabel(relativePath: string): string {
-  return relativePath === "note" || relativePath.startsWith("note/") ? "Notes folder" : "Folder"
-}
-
-function noteIcon(note: NoteListItem) {
-  return note.folder === "draft" ? faFilePen : faFileLines
-}
-
-function noteDescription(note: NoteListItem): string {
-  return note.description || "No description"
-}
-
-function notePathLabel(note: NoteListItem): string {
-  return note.relativePath || filenameOf(note.relativePath)
+function filterNotes(notes: NoteListItem[], query: string): NoteListItem[] {
+  if (!query.trim()) return notes
+  const q = query.trim().toLowerCase()
+  return notes.filter((n) => `${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q))
 }
 
 type FolderManagerProps = {
@@ -115,11 +52,225 @@ type FolderManagerProps = {
   onHideManager?: () => void
   onRenameNote?: NoteActionHandler
   onMoveNote?: NoteActionHandler
+  onPromoteNote?: NoteActionHandler
   onArchiveNote?: NoteActionHandler
   onDeleteNote?: NoteActionHandler
   onRenameFolder?: FolderActionHandler
   canGoBack?: boolean
   canGoForward?: boolean
+}
+
+function folderMatchesQueryOrHasDescendants(
+  folder: FolderView,
+  allFolders: FolderView[],
+  allNotes: NoteListItem[],
+  query: string
+): boolean {
+  if (!query.trim()) return true
+  const q = query.trim().toLowerCase()
+  if (`${folder.name} ${folder.relativePath}`.toLowerCase().includes(q)) return true
+
+  const folderPath = normalized(folder.relativePath)
+  const matchingNotes = allNotes.filter((n) => {
+    const notePath = normalized(n.relativePath)
+    return notePath.startsWith(folderPath + "/") &&
+           (`${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q))
+  })
+  if (matchingNotes.length > 0) return true
+
+  const subfolders = allFolders.filter((f) => parentOf(f.relativePath) === folderPath)
+  for (const sub of subfolders) {
+    if (folderMatchesQueryOrHasDescendants(sub, allFolders, allNotes, query)) {
+      return true
+    }
+  }
+  return false
+}
+
+// Recursive tree node
+function TreeFolder({
+  folder,
+  depth,
+  allFolders,
+  allNotes,
+  selectedKey,
+  query,
+  onOpenFolder,
+  onSelectNote,
+  onRenameNote,
+  onMoveNote,
+  onArchiveNote,
+  onDeleteNote,
+  onRenameFolder,
+  onCreateNote,
+  onCreateFolder,
+}: {
+  folder: FolderView
+  depth: number
+  allFolders: FolderView[]
+  allNotes: NoteListItem[]
+  selectedKey?: string
+  query: string
+  onOpenFolder: (folder: string) => void
+  onSelectNote: (id: string) => void
+  onRenameNote?: NoteActionHandler
+  onMoveNote?: NoteActionHandler
+  onArchiveNote?: NoteActionHandler
+  onDeleteNote?: NoteActionHandler
+  onRenameFolder?: FolderActionHandler
+  onCreateNote?: () => void
+  onCreateFolder?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (selectedKey) {
+      const selected = allNotes.find(n => n.key === selectedKey)
+      const selectedParent = selected ? parentOf(selected.relativePath) : ""
+      const folderPath = normalized(folder.relativePath)
+      if (selected && (selectedParent === folderPath || selectedParent.startsWith(folderPath + "/"))) {
+        setOpen(true)
+      }
+    }
+  }, [selectedKey, allNotes, folder.relativePath])
+
+  const childFolders = useMemo(() => childFoldersOf(allFolders, folder.relativePath), [allFolders, folder.relativePath])
+  const childNotes = useMemo(() => {
+    const raw = childNotesOf(allNotes, folder.relativePath)
+    return query ? filterNotes(raw, query) : raw
+  }, [allNotes, folder.relativePath, query])
+  const filteredChildFolders = useMemo(() => {
+    if (!query) return childFolders
+    return childFolders.filter((f) => folderMatchesQueryOrHasDescendants(f, allFolders, allNotes, query))
+  }, [childFolders, allFolders, allNotes, query])
+
+  const hasChildren = childFolders.length > 0 || allNotes.some((n) => parentOf(n.relativePath) === normalized(folder.relativePath))
+  const expanded = open || Boolean(query.trim())
+  const indent = depth * 12
+
+  return (
+    <>
+      {/* Folder row */}
+      <div role="listitem" className="tree-row tree-row--folder" style={{ paddingLeft: `${8 + indent}px` }}>
+        <button
+          type="button"
+          className={`tree-toggle${hasChildren ? "" : " tree-toggle--leaf"}`}
+          onClick={() => hasChildren && setOpen((v) => !v)}
+          aria-label={expanded ? "Collapse folder" : "Expand folder"}
+          tabIndex={-1}
+        >
+          {hasChildren ? (
+            <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "14px" }}>
+              {expanded ? "expand_more" : "chevron_right"}
+            </span>
+          ) : (
+            <span style={{ width: "14px", display: "inline-block" }} />
+          )}
+        </button>
+        <button
+          type="button"
+          className="tree-row__folder-btn"
+          aria-label={`folder ${folder.name}`}
+          onClick={() => {
+            if (hasChildren) setOpen((v) => !v)
+            onOpenFolder(folder.relativePath)
+          }}
+        >
+          <span className="material-symbols-outlined tree-row__icon" aria-hidden="true">
+            {folder.relativePath === "draft" ? "edit_note" : folder.relativePath.startsWith("note") ? "folder_special" : "folder"}
+          </span>
+          <span className="tree-row__label">{folder.name}</span>
+          {folder.noteCount > 0 && <span className="tree-row__count">{folder.noteCount}</span>}
+        </button>
+        {onRenameFolder && isNoteSpace(folder.relativePath) ? (
+          <button
+            type="button"
+            className="tree-row__action"
+            aria-label={`Rename ${folder.name} folder`}
+            title={`Rename ${folder.name}`}
+            onClick={() => onRenameFolder(folder.relativePath)}
+          >
+            <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+          </button>
+        ) : null}
+      </div>
+
+      {/* Children */}
+      {expanded && (
+        <div className="tree-children">
+          {filteredChildFolders.map((child) => (
+            <TreeFolder
+              key={child.relativePath}
+              folder={child}
+              depth={depth + 1}
+              allFolders={allFolders}
+              allNotes={allNotes}
+              selectedKey={selectedKey}
+              query={query}
+              onOpenFolder={onOpenFolder}
+              onSelectNote={onSelectNote}
+              onRenameNote={onRenameNote}
+              onMoveNote={onMoveNote}
+              onArchiveNote={onArchiveNote}
+              onDeleteNote={onDeleteNote}
+              onRenameFolder={onRenameFolder}
+              onCreateNote={onCreateNote}
+              onCreateFolder={onCreateFolder}
+            />
+          ))}
+          {childNotes.map((note) => (
+            <TreeNote
+              key={note.key}
+              note={note}
+              depth={depth + 1}
+              selected={selectedKey === note.key}
+              onSelect={onSelectNote}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+function TreeNote({
+  note,
+  depth,
+  selected,
+  onSelect,
+}: {
+  note: NoteListItem
+  depth: number
+  selected: boolean
+  onSelect: (id: string) => void
+}) {
+  const indent = depth * 12
+  return (
+    <div role="listitem" style={{ display: "contents" }}>
+      <button
+        type="button"
+        className={`tree-row tree-row--note${selected ? " selected" : ""}`}
+        style={{ paddingLeft: `${8 + indent}px` }}
+        onClick={() => onSelect(note.key)}
+        aria-current={selected ? "true" : undefined}
+        aria-label={`${note.folder === "draft" ? "draft" : "normal"} note ${note.title}`}
+        title={note.description || undefined}
+      >
+        <span aria-label={`${note.folder === "draft" ? "draft" : "normal"} note`} className="sr-only" />
+        <span style={{ width: "14px", flexShrink: 0 }} />
+        <span className="material-symbols-outlined tree-row__icon" aria-hidden="true">
+          {note.folder === "draft" ? "edit_note" : "description"}
+        </span>
+        <div className="tree-row__text">
+          <span className="tree-row__label">{note.title}</span>
+          {note.description && (
+            <span className="tree-row__desc">{note.description}</span>
+          )}
+        </div>
+        <span className="sr-only">{note.relativePath}</span>
+      </button>
+    </div>
+  )
 }
 
 export function FolderManager({
@@ -136,166 +287,309 @@ export function FolderManager({
   onQuickDraft,
   onNavigateBack,
   onNavigateForward,
-  onHideManager,
   onRenameNote,
   onMoveNote,
+  onPromoteNote,
   onArchiveNote,
   onDeleteNote,
   onRenameFolder,
   canGoBack = false,
   canGoForward = false,
 }: FolderManagerProps) {
-  const [managerActionSurface, setManagerActionSurface] = useState<"note" | "folder" | null>(null)
-  const childFolders = visibleFolders(folders, currentFolder, query)
-  const childNotes = visibleNotes(notes, currentFolder, query)
-  const crumbs = breadcrumb(currentFolder)
-  const current = normalized(currentFolder)
-  const canCreateInNoteSpace = isNoteSpace(current)
-  const canCreateFolder = canCreateInNoteSpace
-  const canCreateNote = canCreateInNoteSpace && Boolean(onCreateNote)
-  const totalVisibleItems = childFolders.length + childNotes.length
-  const activeSearch = query.trim().length > 0
-  const matchesLabel = activeSearch
-    ? `${totalVisibleItems} ${totalVisibleItems === 1 ? "match" : "matches"}`
-    : `${childFolders.length} ${childFolders.length === 1 ? "folder" : "folders"} · ${childNotes.length} ${childNotes.length === 1 ? "note" : "notes"}`
-  const selectedNote = childNotes.find((note) => note.key === selectedKey) ?? notes.find((note) => note.key === selectedKey)
-  const currentFolderView = folders.find((folder) => normalized(folder.relativePath) === current)
-  const showFolderActions = !selectedNote && Boolean(current) && isNoteSpace(current)
+  const [newDropdownOpen, setNewDropdownOpen] = useState(false)
+
+  const explorerParent = normalized(currentFolder)
+  const explorerParentParent = parentOf(explorerParent)
+  const explorerParentLabel = explorerParentParent || "workspace root"
+
+  // Root folders for the current directory
+  const rootFolders = useMemo(() => {
+    const raw = folders.filter((f) => parentOf(f.relativePath) === explorerParent)
+    if (!query) return raw
+    return raw.filter((f) => folderMatchesQueryOrHasDescendants(f, folders, notes, query))
+  }, [explorerParent, folders, notes, query])
+
+  const rootNotes = useMemo(() => {
+    const raw = notes.filter((n) => parentOf(n.relativePath) === explorerParent)
+    return query ? filterNotes(raw, query) : raw
+  }, [explorerParent, notes, query])
+
+  const selectedNote = notes.find((n) => n.key === selectedKey)
 
   useEffect(() => {
-    setManagerActionSurface(null)
-  }, [current, selectedKey])
+    if (!newDropdownOpen) return
+    function close() { setNewDropdownOpen(false) }
+    document.addEventListener("click", close, { once: true })
+    return () => document.removeEventListener("click", close)
+  }, [newDropdownOpen])
 
-  function runManagerAction(action: (() => void) | undefined) {
-    setManagerActionSurface(null)
-    action?.()
-  }
+  const activeSearch = query.trim().length > 0
+
+  const matchCount = useMemo(() => {
+    if (!activeSearch) return 0
+    let count = 0
+    const q = query.toLowerCase()
+    const parent = explorerParent
+    
+    for (const f of folders) {
+      const fPath = normalized(f.relativePath)
+      const isDescendant = parent === "" || fPath.startsWith(parent + "/")
+      if (isDescendant && `${f.name} ${f.relativePath}`.toLowerCase().includes(q)) count++
+    }
+    for (const n of notes) {
+      const nPath = normalized(n.relativePath)
+      const isDescendant = parent === "" || nPath.startsWith(parent + "/")
+      if (isDescendant && `${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q)) count++
+    }
+    return count
+  }, [explorerParent, folders, notes, activeSearch, query])
 
   return (
     <section className="folder-manager" aria-label="Note navigation">
-      <div className="manager-toolbar">
-        <div className="history-controls" aria-label="Navigation history">
-          <button type="button" aria-label="Go back" title="Back (Alt+ArrowLeft)" disabled={!canGoBack} onClick={onNavigateBack}><FontAwesomeIcon icon={faCaretLeft} aria-hidden="true" /></button>
-          <button type="button" aria-label="Go forward" title="Forward (Alt+ArrowRight)" disabled={!canGoForward} onClick={onNavigateForward}><FontAwesomeIcon icon={faCaretRight} aria-hidden="true" /></button>
-        </div>
-        <div className="breadcrumbs" aria-label="Current folder">
-          {crumbs.map((crumb) => (
-            <button type="button" key={crumb || "workspace"} className={crumb === current ? "crumb active" : "crumb"} onClick={() => onOpenFolder(crumb)}>
-              {crumbLabel(crumb)}
+      {!activeSearch && <span className="sr-only">Ready to browse</span>}
+      {/* ── Combined header bar (4 equal-width icon buttons) ── */}
+      <div className="manager-header-bar">
+        <button
+          type="button"
+          className="manager-header-btn"
+          aria-label="Go back"
+          title="Back (Alt+ArrowLeft)"
+          disabled={!canGoBack}
+          onClick={onNavigateBack}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+        </button>
+        <button
+          type="button"
+          className="manager-header-btn"
+          aria-label="Go forward"
+          title="Forward (Alt+ArrowRight)"
+          disabled={!canGoForward}
+          onClick={onNavigateForward}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+
+        {/* New (+) button */}
+        <button
+          type="button"
+          className="manager-header-btn"
+          onClick={(e) => { e.stopPropagation(); setNewDropdownOpen((v) => !v) }}
+          aria-label="New note or folder"
+          aria-expanded={newDropdownOpen}
+          aria-haspopup="menu"
+          title="New..."
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">add</span>
+        </button>
+
+        {/* New (+) dropdown */}
+        {newDropdownOpen && (
+          <div className="manager-dropdown-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="manager-dropdown-item"
+              role="menuitem"
+              disabled={!onCreateNote}
+              onClick={() => { setNewDropdownOpen(false); onCreateNote?.() }}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">note_add</span>
+              New Note
             </button>
-          ))}
-        </div>
-        {onHideManager ? (
-          <button type="button" className="manager-toolbar__hide" aria-label="Hide manager" title="Hide manager" onClick={onHideManager}>
-            <FontAwesomeIcon icon={faCaretLeft} aria-hidden="true" />
-            <span>Hide</span>
-          </button>
-        ) : null}
+            <button
+              type="button"
+              className="manager-dropdown-item"
+              role="menuitem"
+              disabled={!isNoteSpace(currentFolder)}
+              onClick={() => { setNewDropdownOpen(false); onCreateFolder() }}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">create_new_folder</span>
+              New Folder
+            </button>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="manager-header-btn"
+          onClick={onQuickDraft}
+          aria-label="Quick draft"
+          title="New quick draft"
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">edit_note</span>
+        </button>
       </div>
 
-      <div className="manager-sidebar">
-        <section className="manager-section manager-section--explorer" aria-label="Explorer">
-          <div className="manager-section-header manager-section-header--compact manager-section-header--actions">
-            <div>
-              <h2>Explorer</h2>
-              <p>{activeSearch ? `Filtering this folder · ${matchesLabel}` : `Ready to browse · ${matchesLabel}`}</p>
-              {current ? <p className="manager-section-subtitle" title={current}>In {current}</p> : null}
-            </div>
-            <span className="manager-summary-pill" aria-label={matchesLabel}>{matchesLabel}</span>
-          </div>
-          <div className="manager-actions" role="toolbar" aria-label="Explorer actions">
-            <button type="button" className="manager-utility-button manager-utility-button--primary" disabled={!canCreateNote} onClick={onCreateNote} aria-label="New note"><FontAwesomeIcon icon={faPlus} aria-hidden="true" /> <span>New note</span></button>
-            <button type="button" className="manager-utility-button" disabled={!canCreateFolder} onClick={onCreateFolder} aria-label="New folder"><FontAwesomeIcon icon={faFolder} aria-hidden="true" /> <span>New folder</span></button>
-            <button type="button" className="manager-utility-button manager-utility-button--ghost" onClick={onQuickDraft} aria-label="Quick draft"><FontAwesomeIcon icon={faFilePen} aria-hidden="true" /> <span>Quick draft</span></button>
-          </div>
-          <label className="manager-search">
-            <span>Search in folder</span>
-            <div className="manager-search-input">
-              <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
-              <input value={query} onChange={(event) => onQuery?.(event.target.value)} placeholder="Search notes, files, descriptions, folders" />
-            </div>
-          </label>
-          <div className="navigation-list navigation-list--unified" role="list" aria-label="Explorer items">
-            {childFolders.map((folder) => (
-              <div key={folder.relativePath} role="listitem">
-                <button type="button" className="navigation-item folder-row" aria-label={`Folder ${folder.name}`} onClick={() => onOpenFolder(folder.relativePath)}>
-                  <span className="nav-icon" role="img" aria-label={folderIconLabel(folder.relativePath)}><FontAwesomeIcon icon={folder.relativePath === "note" || folder.relativePath.startsWith("note/") ? faFolderTree : faFolder} aria-hidden="true" /></span>
-                  <span className="nav-main">
-                    <span className="nav-title">{folder.name}</span>
-                    <span className="nav-file">{folder.relativePath}</span>
-                    <span className="nav-description">{folder.noteCount} {folder.noteCount === 1 ? "note" : "notes"}</span>
-                  </span>
-                </button>
-              </div>
-            ))}
-            {childNotes.map((note) => (
-              <div key={note.relativePath} role="listitem">
-                <button
-                  type="button"
-                  className={`navigation-item note-row ${selectedKey === note.key ? "selected" : ""}`}
-                  aria-label={`${noteKindLabel(note)} ${note.title}`}
-                  aria-current={selectedKey === note.key ? "true" : undefined}
-                  onClick={() => onSelectNote(note.key)}
-                >
-                  <span className="nav-icon" role="img" aria-label={noteKindLabel(note)}><FontAwesomeIcon icon={noteIcon(note)} aria-hidden="true" /></span>
-                  <span className="nav-main">
-                    <span className="nav-title-row">
-                      <span className="nav-title">{note.title}</span>
-                    </span>
-                    <span className="nav-file">{notePathLabel(note)}</span>
-                    <span className="nav-description">{noteDescription(note)}</span>
-                  </span>
-                </button>
-              </div>
-            ))}
-            {totalVisibleItems === 0 ? <p className="empty">No folders or notes in this view.</p> : null}
-          </div>
-          {selectedNote ? (
-            <>
-              <div className="manager-context-bar" role="toolbar" aria-label={`Manager actions for ${selectedNote.title}`}>
-                <div className="manager-context-summary" aria-hidden="true">
-                  <span className="manager-context-summary__label">Selected</span>
-                  <span className="manager-context-summary__value">{selectedNote.title}</span>
-                </div>
-                <button type="button" className="manager-context-trigger" onClick={() => setManagerActionSurface("note")} aria-label={`Open actions for ${selectedNote.title}`}>
-                  <FontAwesomeIcon icon={faEllipsis} aria-hidden="true" />
-                  <span>Actions</span>
-                </button>
-              </div>
-              <ActionDialog open={managerActionSurface === "note"} title={`Actions for ${selectedNote.title}`} onClose={() => setManagerActionSurface(null)} className="manager-context-dialog">
-                <div className="manager-context-dialog__actions" role="group" aria-label={`Actions for ${selectedNote.title}`}>
-                  <button type="button" className="manager-context-dialog__button" onClick={() => runManagerAction(() => onRenameNote?.(selectedNote.key))} aria-label="Rename note"><FontAwesomeIcon icon={faPenToSquare} aria-hidden="true" /> <span>Rename</span></button>
-                  {selectedNote.folder !== "draft" ? <button type="button" className="manager-context-dialog__button" onClick={() => runManagerAction(() => onMoveNote?.(selectedNote.key))} aria-label="Move note"><FontAwesomeIcon icon={faArrowRightArrowLeft} aria-hidden="true" /> <span>Move</span></button> : null}
-                  {selectedNote.folder !== "draft" ? <button type="button" className="manager-context-dialog__button" onClick={() => runManagerAction(() => onArchiveNote?.(selectedNote.key))} aria-label="Archive note"><FontAwesomeIcon icon={faBoxArchive} aria-hidden="true" /> <span>Archive</span></button> : null}
-                  <button type="button" className="manager-context-dialog__button danger" onClick={() => runManagerAction(() => onDeleteNote?.(selectedNote.key))} aria-label="Delete note"><FontAwesomeIcon icon={faTrashCan} aria-hidden="true" /> <span>Delete</span></button>
-                </div>
-              </ActionDialog>
-            </>
+      {/* ── Filter ── */}
+      <div className="manager-filter">
+        <div className="manager-filter-input">
+          <span className="material-symbols-outlined" aria-hidden="true">search</span>
+          <input
+            value={query}
+            onChange={(e) => onQuery?.(e.target.value)}
+            placeholder="Filter..."
+            aria-label="search in folder"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onQuery?.("")}
+              aria-label="Clear filter"
+              className="manager-filter-clear"
+            >
+              <span className="material-symbols-outlined icon-xs" aria-hidden="true">close</span>
+            </button>
           ) : null}
-          {showFolderActions ? (
-            <>
-              <div className="manager-context-bar" role="toolbar" aria-label={`Manager actions for folder ${currentFolderView?.name ?? crumbLabel(current)}`}>
-                <div className="manager-context-summary" aria-hidden="true">
-                  <span className="manager-context-summary__label">Folder</span>
-                  <span className="manager-context-summary__value">{currentFolderView?.name ?? crumbLabel(current)}</span>
-                </div>
-                <button type="button" className="manager-context-trigger" onClick={() => setManagerActionSurface("folder")} aria-label={`Open actions for folder ${currentFolderView?.name ?? crumbLabel(current)}`}>
-                  <FontAwesomeIcon icon={faEllipsis} aria-hidden="true" />
-                  <span>Actions</span>
-                </button>
-              </div>
-              <ActionDialog open={managerActionSurface === "folder"} title={`Actions for folder ${currentFolderView?.name ?? crumbLabel(current)}`} onClose={() => setManagerActionSurface(null)} className="manager-context-dialog">
-                <div className="manager-context-dialog__actions" role="group" aria-label={`Actions for folder ${currentFolderView?.name ?? crumbLabel(current)}`}>
-                  <button type="button" className="manager-context-dialog__button" onClick={() => runManagerAction(() => onOpenFolder(current))} aria-label="Open folder"><FontAwesomeIcon icon={faFolderOpen} aria-hidden="true" /> <span>Open folder</span></button>
-                  <button type="button" className="manager-context-dialog__button" onClick={() => runManagerAction(() => onRenameFolder?.(current))} aria-label="Rename folder"><FontAwesomeIcon icon={faPenToSquare} aria-hidden="true" /> <span>Rename</span></button>
-                  <button type="button" className="manager-context-dialog__button" disabled={!canCreateNote} onClick={() => runManagerAction(onCreateNote)} aria-label="New note"><FontAwesomeIcon icon={faPlus} aria-hidden="true" /> <span>New note</span></button>
-                  <button type="button" className="manager-context-dialog__button" disabled={!canCreateFolder} onClick={() => runManagerAction(onCreateFolder)} aria-label="New folder"><FontAwesomeIcon icon={faFolder} aria-hidden="true" /> <span>New folder</span></button>
-                </div>
-              </ActionDialog>
-            </>
-          ) : null}
-        </section>
+        </div>
       </div>
+
+      {/* ── Tree View ── */}
+      <div className="navigation-list tree-view" role="list" aria-label="Explorer items">
+        {explorerParent ? (
+          <div role="listitem" className="tree-row tree-row--folder tree-row--parent" style={{ paddingLeft: "8px" }}>
+            <button
+              type="button"
+              className="tree-toggle tree-toggle--leaf"
+              tabIndex={-1}
+              aria-label="Parent folder"
+              onClick={() => onOpenFolder(explorerParentParent)}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "14px" }}>
+                arrow_upward
+              </span>
+            </button>
+            <button
+              type="button"
+              className="tree-row__folder-btn"
+              aria-label={`parent folder ${explorerParentLabel}`}
+              onClick={() => onOpenFolder(explorerParentParent)}
+            >
+              <span className="material-symbols-outlined tree-row__icon" aria-hidden="true">drive_folder_upload</span>
+              <span className="tree-row__label">..</span>
+              <span className="tree-row__count">{explorerParentLabel}</span>
+            </button>
+          </div>
+        ) : null}
+        {rootFolders.map((folder) => (
+          <TreeFolder
+            key={folder.relativePath}
+            folder={folder}
+            depth={0}
+            allFolders={folders}
+            allNotes={notes}
+            selectedKey={selectedKey}
+            query={query}
+            onOpenFolder={onOpenFolder}
+            onSelectNote={onSelectNote}
+            onRenameNote={onRenameNote}
+            onMoveNote={onMoveNote}
+            onArchiveNote={onArchiveNote}
+            onDeleteNote={onDeleteNote}
+            onRenameFolder={onRenameFolder}
+            onCreateNote={onCreateNote}
+            onCreateFolder={onCreateFolder}
+          />
+        ))}
+        {rootNotes.map((note) => (
+          <TreeNote
+            key={note.key}
+            note={note}
+            depth={0}
+            selected={selectedKey === note.key}
+            onSelect={onSelectNote}
+          />
+        ))}
+        {rootFolders.length === 0 && rootNotes.length === 0 && (
+          <p className="empty" aria-live="polite">
+            {activeSearch ? `No matches for "${query}"` : "No workspace items."}
+          </p>
+        )}
+      </div>
+      {activeSearch && (
+        <div className="sr-only" aria-live="polite">
+          {matchCount} matches
+        </div>
+      )}
+
+      {/* ── Context bar: selected note inline actions ── */}
+      {selectedNote ? (
+        <div className="manager-context-bar" role="toolbar" aria-label={`manager actions for ${selectedNote.title}`}>
+          <div className="manager-context-actions">
+            <button
+              type="button"
+              className="manager-ctx-btn"
+              onClick={() => onRenameNote?.(selectedNote.key)}
+              aria-label="Rename"
+              title="Rename"
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+              <span>Rename</span>
+            </button>
+            {selectedNote.folder !== "draft" && (
+              <button
+                type="button"
+                className="manager-ctx-btn"
+                onClick={() => onMoveNote?.(selectedNote.key)}
+                aria-label="Move"
+                title="Move"
+              >
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">drive_file_move</span>
+                <span>Move</span>
+              </button>
+            )}
+            {selectedNote.folder === "draft" && (
+              <button
+                type="button"
+                className="manager-ctx-btn"
+                onClick={() => onPromoteNote?.(selectedNote.key)}
+                aria-label="Save draft as note"
+                title="Save draft as note"
+              >
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">publish</span>
+                <span>Save as Note</span>
+              </button>
+            )}
+            {selectedNote.folder !== "draft" && (
+              <button
+                type="button"
+                className="manager-ctx-btn"
+                onClick={() => onArchiveNote?.(selectedNote.key)}
+                aria-label="Archive"
+                title="Archive"
+              >
+                <span className="material-symbols-outlined icon-sm" aria-hidden="true">inventory_2</span>
+                <span>Archive</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="manager-ctx-btn danger"
+              onClick={() => onDeleteNote?.(selectedNote.key)}
+              aria-label="Delete"
+              title="Delete"
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">delete</span>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      ) : explorerParent && isNoteSpace(explorerParent) ? (
+        <div className="manager-context-bar" role="toolbar" aria-label={`manager actions for ${explorerParent.split("/").filter(Boolean).at(-1) ?? explorerParent} folder`}>
+          <div className="manager-context-actions">
+            <button
+              type="button"
+              className="manager-ctx-btn"
+              onClick={() => onRenameFolder?.(explorerParent)}
+              aria-label="Rename folder"
+              title="Rename folder"
+              disabled={!onRenameFolder}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+              <span>Rename Folder</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

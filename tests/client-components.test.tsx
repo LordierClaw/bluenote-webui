@@ -11,6 +11,7 @@ import { PreviewPane } from "../src/client/components/PreviewPane"
 import { ActionDialog } from "../src/client/components/ActionDialog"
 import { AppShell } from "../src/client/components/AppShell"
 import { AiWorkspaceDialog } from "../src/client/components/AiWorkspaceDialog"
+import { SettingsModal } from "../src/client/components/SettingsModal"
 import { ShellActionBar } from "../src/client/components/ShellActionBar"
 import { App, isEditableTarget } from "../src/client/app/App"
 import { createNavigationHistory, noteFolderFromRelativePath } from "../src/client/app/navigationHistory"
@@ -185,6 +186,19 @@ describe("client scaffolding", () => {
     expect(aiButton).toHaveTextContent(/1 running/i)
   })
 
+  test("settings modal leaves AI configuration in the dedicated AI workspace dialog", () => {
+    render(<SettingsModal open onClose={() => undefined} theme="dark" onThemeChange={() => undefined} />)
+
+    const dialog = screen.getByRole("dialog", { name: /settings/i })
+    expect(within(dialog).getByRole("heading", { name: /general/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("radio", { name: /dark theme/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("radio", { name: /light theme/i })).toBeInTheDocument()
+    expect(within(dialog).queryByRole("radio", { name: /system theme/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /editor/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /ai integration/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /test connection/i })).not.toBeInTheDocument()
+  })
+
   test("theme preference persists and updates the document theme", async () => {
     window.localStorage.setItem("bluenote-webui-theme", "dark")
 
@@ -274,10 +288,10 @@ describe("client scaffolding", () => {
     const manager = screen.getByRole("region", { name: /note navigation/i })
     expect(within(manager).getByRole("button", { name: /folder note$/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /folder draft$/i })).toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /new folder/i })).toBeEnabled()
+    expect(within(manager).getByRole("button", { name: /new note or folder/i })).toBeEnabled()
   })
 
-  test("folder manager enables subfolder creation only inside note folders", () => {
+  test("folder manager enables subfolder creation only inside note folders", async () => {
     const { rerender } = render(<FolderManager
       currentFolder="draft"
       selectedKey=""
@@ -287,7 +301,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    expect(screen.getByRole("button", { name: /new folder/i })).toBeDisabled()
+    let manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeDisabled()
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
 
     rerender(<FolderManager
       currentFolder="notebook"
@@ -298,7 +315,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    expect(screen.getByRole("button", { name: /new folder/i })).toBeDisabled()
+    manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeDisabled()
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
 
     rerender(<FolderManager
       currentFolder="note/projects"
@@ -309,9 +329,10 @@ describe("client scaffolding", () => {
       onSelectNote={() => undefined}
       onCreateFolder={() => undefined}
     />)
-    const manager = screen.getByRole("region", { name: /note navigation/i })
-    const explorerActions = within(manager).getByRole("toolbar", { name: /explorer actions/i })
-    expect(within(explorerActions).getByRole("button", { name: /new folder/i })).toBeEnabled()
+    manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    expect(within(manager).getByRole("menuitem", { name: /new folder/i })).toBeEnabled()
+    expect(within(manager).queryByRole("toolbar", { name: /explorer actions/i })).not.toBeInTheDocument()
   })
 
   test("folder manager uses icon-led metadata rows inside the explorer", async () => {
@@ -320,7 +341,7 @@ describe("client scaffolding", () => {
     render(<FolderManager
       currentFolder="note"
       selectedKey="alpha"
-      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "draft", name: "draft", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
       notes={[
         { key: "alpha", title: "Alpha", description: "Body", relativePath: "note/alpha.md", folder: "note" },
         { key: "nested", title: "Nested", description: "Hidden", relativePath: "note/projects/nested.md", folder: "note" },
@@ -334,7 +355,12 @@ describe("client scaffolding", () => {
     expect(within(manager).queryByText("Selected note")).not.toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /folder projects/i })).toHaveTextContent("projects")
+    
+    // Expand the 'projects' folder to see its children
+    const projectsRow = within(manager).getByRole("button", { name: /folder projects/i }).parentElement!
+    await userEvent.click(within(projectsRow).getByRole("button", { name: "Expand folder" }))
+    
+    expect(await within(manager).findByRole("button", { name: /folder projects/i })).toHaveTextContent("projects")
     expect(within(manager).getByRole("button", { name: /normal note alpha/i })).toHaveTextContent("note/alpha.md")
     expect(within(manager).queryByText(/^Folder$/)).not.toBeInTheDocument()
     expect(within(manager).queryByText(/^Note$/)).not.toBeInTheDocument()
@@ -345,9 +371,11 @@ describe("client scaffolding", () => {
   test("folder manager note rows expose explorer metadata without visible kind pills", () => {
     render(
       <FolderManager
-        currentFolder="note"
+        currentFolder="draft"
         selectedKey="draft-1"
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
         ]}
         notes={[
@@ -355,7 +383,7 @@ describe("client scaffolding", () => {
             key: "draft-1",
             title: "Draft spec",
             description: "First pass of redesign",
-            relativePath: "note/draft-spec.md",
+            relativePath: "draft/draft-spec.md",
             folder: "draft",
           },
         ]}
@@ -375,17 +403,19 @@ describe("client scaffolding", () => {
     expect(draftRow).toBeInTheDocument()
     expect(within(draftRow).getByLabelText(/^draft note$/i)).toBeInTheDocument()
     expect(within(draftRow).getByText("Draft spec")).toBeInTheDocument()
-    expect(within(draftRow).getByText("note/draft-spec.md")).toBeInTheDocument()
+    expect(within(draftRow).getByText("draft/draft-spec.md")).toBeInTheDocument()
     expect(within(draftRow).getByText("First pass of redesign")).toBeInTheDocument()
     expect(within(draftRow).queryByText(/^Draft note$/i)).not.toBeInTheDocument()
   })
 
-  test("folder manager uses one unified explorer with folders first and notes after", () => {
+  test("folder manager uses one unified explorer with folders first and notes after", async () => {
     render(
       <FolderManager
         currentFolder="note"
         selectedKey="note-1"
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
           { relativePath: "note/reference", name: "reference", noteCount: 5 },
         ]}
@@ -410,14 +440,20 @@ describe("client scaffolding", () => {
 
     const manager = screen.getByRole("region", { name: /note navigation/i })
     const explorer = within(manager).getByRole("list", { name: /explorer items/i })
-    const rows = within(explorer).getAllByRole("listitem")
-
     expect(within(manager).queryByRole("heading", { name: /folders/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("heading", { name: /notes in this folder/i })).not.toBeInTheDocument()
-    expect(rows).toHaveLength(3)
-    expect(within(rows[0]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
-    expect(within(rows[1]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
-    expect(within(rows[2]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
+    
+    
+    // Wait for the folder to expand
+    expect(await within(explorer).findByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    
+    const rowsAfterExpand = within(explorer).getAllByRole("listitem")
+    expect(rowsAfterExpand.length).toBeGreaterThanOrEqual(3)
+    
+    expect(within(rowsAfterExpand[0]).getByRole("button", { name: /parent folder workspace root/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[1]).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[2]).getByRole("button", { name: /folder reference/i })).toBeInTheDocument()
+    expect(within(rowsAfterExpand[3]).getByRole("button", { name: /normal note draft spec/i })).toBeInTheDocument()
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
     const noteRow = within(manager).getByRole("button", { name: /normal note draft spec/i })
@@ -453,19 +489,10 @@ describe("client scaffolding", () => {
     )
 
     const actionBar = screen.getByRole("toolbar", { name: /manager actions for alpha/i })
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-
-    const actionGroup = await screen.findByRole("group", { name: /actions for alpha/i })
-    await userEvent.click(within(actionGroup).getByRole("button", { name: /rename note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /move note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /archive note/i }))
-
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for alpha/i }))
-    await userEvent.click(within(await screen.findByRole("group", { name: /actions for alpha/i })).getByRole("button", { name: /delete note/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^rename$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^move$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^archive$/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^delete$/i }))
 
     expect(onRenameNote).toHaveBeenCalledWith("alpha")
     expect(onMoveNote).toHaveBeenCalledWith("alpha")
@@ -473,6 +500,7 @@ describe("client scaffolding", () => {
     expect(onDeleteNote).toHaveBeenCalledWith("alpha")
     expect(onSelectNote).not.toHaveBeenCalled()
     expect(screen.queryByRole("group", { name: /actions for alpha/i })).not.toBeInTheDocument()
+    expect(within(actionBar).queryByRole("button", { name: /open actions for alpha/i })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /move note scratch/i })).not.toBeInTheDocument()
   })
 
@@ -484,6 +512,8 @@ describe("client scaffolding", () => {
         currentFolder="note"
         selectedKey=""
         folders={[
+          { relativePath: "note", name: "note", noteCount: 2 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
           { relativePath: "note/projects", name: "projects", noteCount: 2 },
           { relativePath: "note/reference", name: "reference", noteCount: 1 },
           { relativePath: "draft/projects", name: "projects", noteCount: 1 },
@@ -505,8 +535,12 @@ describe("client scaffolding", () => {
     expect(within(manager).getByRole("textbox", { name: /search in folder/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /hide filter/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /show filter/i })).not.toBeInTheDocument()
-    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    
+    const projectFolders = await within(manager).findAllByRole("button", { name: /folder projects/i })
+    expect(projectFolders).toHaveLength(1)
+    await userEvent.click(projectFolders[0])
     expect(within(manager).queryByRole("button", { name: /folder reference/i })).not.toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /folder draft/i })).not.toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note alpha/i })).toBeInTheDocument()
     expect(within(manager).getByRole("button", { name: /normal note project plan/i })).toBeInTheDocument()
     expect(within(manager).queryByRole("button", { name: /draft note project scratch/i })).not.toBeInTheDocument()
@@ -515,6 +549,79 @@ describe("client scaffolding", () => {
     const searchBox = within(manager).getByRole("textbox", { name: /search in folder/i })
     await userEvent.clear(searchBox)
     expect(onQuery).toHaveBeenCalledWith("")
+  })
+
+  test("folder manager matches folder paths while filtering", () => {
+    render(
+      <FolderManager
+        currentFolder="note"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 0 },
+          { relativePath: "note/projects", name: "projects", noteCount: 0 },
+          { relativePath: "note/projects/client", name: "client", noteCount: 0 },
+        ]}
+        notes={[]}
+        query="note/projects/client"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /folder client/i })).toBeInTheDocument()
+    expect(within(manager).getAllByText(/1 match/i).length).toBeGreaterThan(0)
+  })
+
+  test("folder manager search count excludes the current scoped folder", () => {
+    render(
+      <FolderManager
+        currentFolder="note/projects"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 0 },
+          { relativePath: "note/projects", name: "projects", noteCount: 0 },
+        ]}
+        notes={[]}
+        query="projects"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByText(/no matches/i)).toBeInTheDocument()
+    expect(within(manager).queryByText(/1 match/i)).not.toBeInTheDocument()
+  })
+
+  test("folder manager expands matching descendant notes while filtering collapsed folders", () => {
+    render(
+      <FolderManager
+        currentFolder="note"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 1 },
+          { relativePath: "note/projects", name: "projects", noteCount: 1 },
+        ]}
+        notes={[
+          { key: "nested", title: "Quarterly plan", description: "Nested only", relativePath: "note/projects/quarterly.md", folder: "note" },
+        ]}
+        query="quarterly"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note quarterly plan/i })).toBeInTheDocument()
   })
 
   test("shell action bar is no longer used as an editor management surface", () => {
@@ -550,7 +657,7 @@ describe("client scaffolding", () => {
         open
         onClose={onClose}
         status={{ status: "auth-required", provider: "codex", model: "gpt-5-codex", queue: { pending: 2, running: 0, failed: 1 }, message: "Authentication required before background jobs can run." }}
-        config={{ configured: true, enabled: true, provider: "codex", model: "gpt-5-codex", logging: { usage: true, conversations: false, results: true }, maxAttempts: 3, outputLanguage: "English" }}
+        config={{ configured: true, enabled: false, provider: "codex", model: "gpt-5-codex", logging: { usage: true, conversations: false, results: true }, maxAttempts: 3, outputLanguage: "English" }}
         queue={{ jobs: [{ kind: "describe-note", key: "alpha", relativePath: "note/alpha.md", status: "pending", attempts: 0, lastError: null, updatedAt: new Date().toISOString() }] }}
         codexAuth={{ state: "setup-required" }}
         onSaveConfig={onSaveConfig}
@@ -572,9 +679,24 @@ describe("client scaffolding", () => {
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /config/i }))
     expect(within(dialog).getByRole("combobox", { name: /provider/i })).toHaveValue("codex")
+    expect(within(dialog).getByRole("switch", { name: /enable ai/i })).toHaveAttribute("aria-checked", "false")
+    const codexModel = within(dialog).getByRole("textbox", { name: /model/i })
+    const codexOutputLanguage = within(dialog).getByRole("textbox", { name: /output language/i })
+    const codexMaxAttempts = within(dialog).getByLabelText(/max attempts/i)
+    await userEvent.clear(codexModel)
+    await userEvent.type(codexModel, "gpt-5-codex-mini")
+    await userEvent.clear(codexMaxAttempts)
+    await userEvent.type(codexMaxAttempts, "5")
+    await userEvent.clear(codexOutputLanguage)
+    await userEvent.type(codexOutputLanguage, "Spanish")
+    await userEvent.click(within(dialog).getByRole("switch", { name: /enable ai/i }))
+    await userEvent.click(within(dialog).getByRole("button", { name: /save configuration/i }))
+    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, provider: "codex", model: "gpt-5-codex-mini", maxAttempts: 5, outputLanguage: "Spanish" }))
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /queue/i }))
-    expect(within(dialog).getByRole("list", { name: /ai queued jobs/i })).toBeInTheDocument()
+    const queueTable = within(dialog).getByRole("table", { name: /ai queued jobs/i })
+    expect(within(queueTable).getByRole("columnheader", { name: /action/i })).toBeInTheDocument()
+    expect(within(queueTable).getAllByRole("row")).toHaveLength(2)
     expect(within(dialog).getByText(/note\/alpha\.md/i)).toBeInTheDocument()
     await userEvent.click(within(dialog).getByRole("button", { name: /run queued jobs/i }))
     expect(onProcessQueue).toHaveBeenCalledTimes(1)
@@ -630,6 +752,94 @@ describe("client scaffolding", () => {
     await userEvent.click(within(manager).getByRole("button", { name: /go forward/i }))
     expect(onNavigateBack).toHaveBeenCalledTimes(1)
     expect(onNavigateForward).toHaveBeenCalledTimes(1)
+  })
+
+  test("folder manager disables folder creation outside note space and hides non-note-space rename", async () => {
+    const onCreateFolder = vi.fn()
+    const onRenameFolder = vi.fn()
+
+    render(<FolderManager
+      currentFolder="draft"
+      selectedKey=""
+      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      notes={[]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={onCreateFolder}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    const newFolder = within(manager).getByRole("menuitem", { name: /new folder/i })
+    expect(newFolder).toBeDisabled()
+    await userEvent.click(newFolder)
+    expect(onCreateFolder).not.toHaveBeenCalled()
+    expect(within(manager).queryByRole("button", { name: /rename draft folder/i })).not.toBeInTheDocument()
+  })
+
+  test("folder manager derives explorer items from the active folder", async () => {
+    const onRenameFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note"
+      selectedKey=""
+      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }, { relativePath: "note/projects/archive", name: "archive", noteCount: 1 }]}
+      notes={[{ key: "root", title: "Root", description: "", relativePath: "note/root.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }, { key: "nested", title: "Nested", description: "", relativePath: "note/projects/nested.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note root/i })).toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /folder draft/i })).not.toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /normal note nested/i })).not.toBeInTheDocument()
+
+    await userEvent.click(within(manager).getByRole("button", { name: /rename projects folder/i }))
+    expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
+  })
+
+  test("folder manager exposes actions for the scoped current folder", async () => {
+    const onRenameFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note/projects"
+      selectedKey=""
+      folders={[{ relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      notes={[]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    const actionBar = within(manager).getByRole("toolbar", { name: /manager actions for projects folder/i })
+    await userEvent.click(within(actionBar).getByRole("button", { name: /rename folder/i }))
+    expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
+  })
+
+  test("folder manager keeps parent navigation visible from nested active folders", async () => {
+    const onOpenFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note/projects"
+      selectedKey=""
+      folders={[{ relativePath: "note", name: "note", noteCount: 2 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }, { relativePath: "note/projects/archive", name: "archive", noteCount: 1 }]}
+      notes={[{ key: "nested", title: "Nested", description: "", relativePath: "note/projects/nested.md", folder: "note", updatedAt: "2026-06-15T00:00:00.000Z" }]}
+      onOpenFolder={onOpenFolder}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /parent folder note/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /folder archive/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note nested/i })).toBeInTheDocument()
+    expect(within(manager).queryByRole("button", { name: /^folder projects$/i })).not.toBeInTheDocument()
+
+    await userEvent.click(within(manager).getByRole("button", { name: /parent folder note/i }))
+    expect(onOpenFolder).toHaveBeenCalledWith("note")
   })
 
   test("navigation history derives note folders from startup note relative paths", () => {
@@ -692,6 +902,133 @@ describe("client scaffolding", () => {
     expect(screen.getByLabelText(/editor status bar/i)).toHaveTextContent(/lines 1/i)
     expect(screen.getByLabelText(/editor status bar/i)).toHaveTextContent(/ln 1, col 1/i)
     expect(screen.getByRole("button", { name: /wrap on/i })).toBeInTheDocument()
+  })
+
+  test("editor find shortcut ignores non-editor inputs", async () => {
+    render(
+      <div>
+        <input aria-label="External search" />
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body: "alpha beta", updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body="alpha beta"
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={() => undefined}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      </div>,
+    )
+
+    const externalInput = screen.getByRole("textbox", { name: /external search/i })
+    await userEvent.click(externalInput)
+    fireEvent.keyDown(externalInput, { key: "f", ctrlKey: true })
+    expect(screen.queryByPlaceholderText(/find/i)).not.toBeInTheDocument()
+
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    expect(await screen.findByPlaceholderText(/find/i)).toBeInTheDocument()
+  })
+
+  test("editor find shortcuts are consumed behind dialogs even without an active note", () => {
+    render(
+      <>
+        <ActionDialog open title="Settings" onClose={() => undefined}>Settings</ActionDialog>
+        <EditorPane
+          note={null}
+          body=""
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={() => undefined}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      </>,
+    )
+
+    const findEvent = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true })
+    const findNextEvent = new KeyboardEvent("keydown", { key: "g", ctrlKey: true, cancelable: true })
+    const f3Event = new KeyboardEvent("keydown", { key: "F3", cancelable: true })
+    expect(window.dispatchEvent(findEvent)).toBe(false)
+    expect(window.dispatchEvent(findNextEvent)).toBe(false)
+    expect(window.dispatchEvent(f3Event)).toBe(false)
+    expect(findEvent.defaultPrevented).toBe(true)
+    expect(findNextEvent.defaultPrevented).toBe(true)
+    expect(f3Event.defaultPrevented).toBe(true)
+    expect(screen.queryByPlaceholderText(/find/i)).not.toBeInTheDocument()
+  })
+
+  test("editor clamps active find match after replacing the last match", async () => {
+    function Harness() {
+      const [body, setBody] = useState("alpha beta alpha")
+      return (
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body, updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body={body}
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={setBody}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    const findInput = await screen.findByPlaceholderText(/find/i)
+    await userEvent.type(findInput, "alpha")
+    expect(screen.getByText("1 of 2")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByTitle(/next/i))
+    expect(screen.getByText("2 of 2")).toBeInTheDocument()
+    await userEvent.type(screen.getByPlaceholderText(/replace/i), "omega")
+    await userEvent.click(screen.getByRole("button", { name: /^replace$/i }))
+
+    await waitFor(() => expect(screen.getByText("1 of 1")).toBeInTheDocument())
+    expect(screen.queryByText("2 of 1")).not.toBeInTheDocument()
+  })
+
+  test("editor replace all treats replacement dollar sequences literally", async () => {
+    function Harness() {
+      const [body, setBody] = useState("alpha alpha")
+      return (
+        <EditorPane
+          note={{ key: "a", title: "A", description: "", relativePath: "note/a.md", folder: "note", body, updatedAt: "2026-06-10T12:34:00.000Z" }}
+          body={body}
+          dirty={false}
+          saveState="Loaded"
+          onBodyChange={setBody}
+          onSave={() => undefined}
+          onPromote={() => undefined}
+          onRename={() => undefined}
+          onMove={() => undefined}
+          onSearch={() => undefined}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const noteBody = screen.getByLabelText(/note body/i)
+    await userEvent.click(noteBody)
+    fireEvent.keyDown(noteBody, { key: "f", ctrlKey: true })
+    await userEvent.type(await screen.findByPlaceholderText(/find/i), "alpha")
+    await userEvent.type(screen.getByPlaceholderText(/replace/i), "$& $1 $$")
+    await userEvent.click(screen.getByRole("button", { name: /replace all/i }))
+
+    await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("$& $1 $$ $& $1 $$"))
   })
 
   test("action dialog closes with Escape and backdrop click, but not inside clicks", async () => {
@@ -760,6 +1097,10 @@ describe("client scaffolding", () => {
     const input = document.createElement("input")
     const textarea = document.createElement("textarea")
     const select = document.createElement("select")
+    const readonlyInput = document.createElement("input")
+    readonlyInput.readOnly = true
+    const readonlyTextarea = document.createElement("textarea")
+    readonlyTextarea.readOnly = true
     const editable = document.createElement("div")
     editable.setAttribute("contenteditable", "true")
     const button = document.createElement("button")
@@ -767,6 +1108,8 @@ describe("client scaffolding", () => {
     expect(isEditableTarget(input)).toBe(true)
     expect(isEditableTarget(textarea)).toBe(true)
     expect(isEditableTarget(select)).toBe(true)
+    expect(isEditableTarget(readonlyInput)).toBe(false)
+    expect(isEditableTarget(readonlyTextarea)).toBe(false)
     expect(isEditableTarget(editable)).toBe(true)
     expect(isEditableTarget(button)).toBe(false)
     expect(isEditableTarget(null)).toBe(false)
@@ -784,6 +1127,62 @@ describe("client scaffolding", () => {
     expect(await screen.findByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
   })
 
+  test("command palette input does not leak editing shortcuts to the app shell", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Palette draft")
+    apiMocks.updateNote.mockClear()
+
+    await userEvent.keyboard("{Control>}k{/Control}")
+    const paletteInput = await screen.findByRole("textbox", { name: /search everything/i })
+    await userEvent.type(paletteInput, "alpha")
+
+    await userEvent.keyboard("{Control>}k{/Control}")
+    expect(screen.getByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
+
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")
+    await userEvent.keyboard("{F2}")
+    await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}")
+
+    expect(apiMocks.updateNote).not.toHaveBeenCalled()
+    expect(screen.queryByRole("dialog", { name: /move note/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
+  })
+
+  test("settings modal blocks app shell shortcuts", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Settings draft")
+    apiMocks.updateNote.mockClear()
+
+    await userEvent.click(screen.getByRole("button", { name: /open settings/i }))
+    const settingsDialog = await screen.findByRole("dialog", { name: /settings/i })
+    settingsDialog.focus()
+
+    const saveEvent = new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true })
+    const historyEvent = new KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true, cancelable: true })
+    const findEvent = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true })
+    expect(window.dispatchEvent(saveEvent)).toBe(false)
+    expect(window.dispatchEvent(historyEvent)).toBe(false)
+    expect(window.dispatchEvent(findEvent)).toBe(false)
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await userEvent.keyboard("{Control>}k{/Control}")
+    await userEvent.keyboard("{Alt>}p{/Alt}")
+    await userEvent.keyboard("{F2}")
+    await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")
+
+    expect(saveEvent.defaultPrevented).toBe(true)
+    expect(historyEvent.defaultPrevented).toBe(true)
+    expect(findEvent.defaultPrevented).toBe(true)
+    expect(apiMocks.updateNote).not.toHaveBeenCalled()
+    expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /search and commands/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /move note/i })).not.toBeInTheDocument()
+  })
+
   test("editor textarea keeps advertised move and rename shortcuts active", async () => {
     const { textarea } = await renderAppWithStartupNote()
     await userEvent.click(textarea)
@@ -796,6 +1195,30 @@ describe("client scaffolding", () => {
 
     await userEvent.keyboard("{F2}")
     expect(await screen.findByRole("dialog", { name: /rename note/i })).toBeInTheDocument()
+  })
+
+  test("read-only editor title does not block app shortcuts", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    const title = screen.getByRole("textbox", { name: /document heading/i })
+    await userEvent.click(title)
+    expect(title).toHaveFocus()
+
+    await userEvent.keyboard("{F2}")
+    expect(await screen.findByRole("dialog", { name: /rename note/i })).toBeInTheDocument()
+
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument())
+
+    await userEvent.click(title)
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Save from title focus")
+    await userEvent.click(title)
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await waitFor(() => expect(apiMocks.updateNote).toHaveBeenCalledWith("note-1", { body: "Save from title focus" }))
+
+    await userEvent.click(title)
+    await userEvent.keyboard("{Control>}f{/Control}")
+    expect(await screen.findByPlaceholderText(/find/i)).toHaveFocus()
   })
 
   test("manager rename actions stay local to the targeted note", async () => {
@@ -839,11 +1262,10 @@ describe("client scaffolding", () => {
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
+    expect(screen.queryByRole("button", { name: /folder projects/i })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     const actionBar = await screen.findByRole("toolbar", { name: /manager actions for beta/i })
-    await userEvent.click(within(actionBar).getByRole("button", { name: /open actions for beta/i }))
-    const actionGroup = await screen.findByRole("group", { name: /actions for beta/i })
-    await userEvent.click(within(actionGroup).getByRole("button", { name: /rename note/i }))
+    await userEvent.click(within(actionBar).getByRole("button", { name: /^rename$/i }))
 
     const dialog = await screen.findByRole("dialog", { name: /rename note/i })
     expect(dialog).toBeInTheDocument()
@@ -894,6 +1316,8 @@ describe("client scaffolding", () => {
     apiMocks.folders.mockResolvedValue([
       { relativePath: "note", name: "note", noteCount: 2 },
       { relativePath: "note/projects", name: "projects", noteCount: 1 },
+          { relativePath: "draft", name: "draft", noteCount: 1 },
+          { relativePath: "draft/projects", name: "projects", noteCount: 1 },
     ])
     apiMocks.notes.mockResolvedValue([
       { key: alpha.key, title: alpha.title, description: alpha.description, relativePath: alpha.relativePath, folder: alpha.folder },
@@ -911,7 +1335,11 @@ describe("client scaffolding", () => {
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
-    await userEvent.click(screen.getByRole("button", { name: /folder projects/i }))
+    // Expand the 'note' folder using the toggle chevron
+
+    const projectsFolderRow = (await screen.findByRole("button", { name: /folder projects/i })).parentElement!
+    await userEvent.click(within(projectsFolderRow).getByRole("button", { name: /expand folder/i }))
+
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Beta body"))
 

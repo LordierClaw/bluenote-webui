@@ -4,7 +4,7 @@ const MANAGER_KEY = "bluenote-webui.manager-visible"
 const PREVIEW_KEY = "bluenote-webui.preview-visible"
 const LEGACY_PREVIEW_KEY = "bluenote-webui.utility-visible"
 const MANAGER_BREAKPOINT = 1040
-const PREVIEW_BREAKPOINT = 760
+const PREVIEW_BREAKPOINT = 768
 
 type PanePreference = boolean | null
 

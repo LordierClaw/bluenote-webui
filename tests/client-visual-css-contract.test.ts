@@ -79,9 +79,11 @@ describe("visual CSS layout contracts", () => {
     expect(rootToken(":root", "--surface-muted")).toBe("#eef2f7")
     expect(rootToken(":root", "--surface-raised")).toBe("#fcfdff")
     expect(rootToken(":root", "--line")).toBe("#c6d2df")
+    expect(rootToken(":root", "--error-container")).toBe("#fee2e2")
     expect(rootToken(":root[data-theme=\"dark\"]", "--surface")).toBe("#0f172a")
     expect(rootToken(":root[data-theme=\"dark\"]", "--surface-raised")).toBe("#10182b")
     expect(rootToken(":root[data-theme=\"dark\"]", "--line")).toBe("#243244")
+    expect(rootToken(":root[data-theme=\"dark\"]", "--error-container")).toBe("#93000a")
   })
 
   test("raised controls and editing surfaces derive elevation from theme shadow tokens", () => {
@@ -92,7 +94,7 @@ describe("visual CSS layout contracts", () => {
     expect(
       declarationFor(".action-backdrop", "padding"),
       "Expected .action-backdrop to keep dialogs comfortably below the top chrome",
-    ).toMatch(/^1?0vh\s+1rem\s+1rem$/)
+    ).toBe("24px")
 
     expect(
       declarationFor(".action-box", "box-shadow"),
@@ -126,7 +128,24 @@ describe("visual CSS layout contracts", () => {
   })
 
   test("tablet-width shell keeps the workspace path on its own row and preserves an editor-first split", () => {
-    expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-workspace \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
+    expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*flex-wrap:\s*wrap;[\s\S]*\.topbar-left \{[\s\S]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-filepath \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
+  })
+
+  test("tablet manager layout does not override resizable grid columns", () => {
+    expect(themeCss).not.toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.main-grid[^}]*\{[\s\S]*grid-template-columns:[\s\S]*!important;/s)
+    expect(themeCss).not.toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.preview-pane \{\s*display:\s*none\s*!important;/s)
+  })
+
+  test("mobile controls can reveal rendered manager and preview panes", () => {
+    expect(themeCss).not.toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.(?:folder-manager|preview-pane) \{\s*display:\s*none;?[\s\S]*\}/s)
+    expect(themeCss).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.pane-divider \{\s*display:\s*none;?[\s\S]*\}/s)
+  })
+
+  test("manager dropdown remains below action dialog backdrops", () => {
+    const menuZ = themeCss.match(/\.manager-dropdown-menu\s*\{[\s\S]*?z-index:\s*(\d+)\s*;/)?.[1]
+    const backdropZ = declarationFor(".action-backdrop", "z-index")
+    expect(menuZ, "Expected .manager-dropdown-menu to define z-index").toBeDefined()
+    expect(Number(menuZ)).toBeLessThan(Number(backdropZ))
   })
 
   test("editor canvas remains dominant", () => {

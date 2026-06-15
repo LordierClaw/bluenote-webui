@@ -11,14 +11,14 @@ describe("editor layout CSS regressions", () => {
   })
 
   test("editor textarea explicitly fills the flexible body instead of collapsing to a strip", () => {
-    expect(themeCss).toMatch(/\.editor-body-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/s)
+    expect(themeCss).toMatch(/\.editor-body-shell\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s)
     expect(themeCss).toMatch(/\.editor-textarea\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*resize:\s*none;/s)
     expect(themeCss).toMatch(/\.editor-status-bar\s*\{[^}]*min-height:\s*30px;/s)
   })
 
-  test("editor canvas keeps a calmer centered writing measure with subtle header and footer chrome", () => {
+  test("editor canvas keeps a full-width redesigned writing surface with subtle header and footer chrome", () => {
     expect(themeCss).toMatch(/\.editor-header\s*\{[^}]*border-bottom:\s*1px\s+solid/s)
-    expect(themeCss).toMatch(/\.editor-textarea\s*\{[^}]*max-width:\s*(?:78|80|82|84)ch;[^}]*margin:\s*0\s+auto;/s)
+    expect(themeCss).toMatch(/\.editor-textarea\s*\{[^}]*max-width:\s*none;[^}]*margin:\s*0;/s)
     expect(themeCss).toMatch(/\.editor-status-bar\s*\{[^}]*background:\s*color-mix\(/s)
   })
 })
