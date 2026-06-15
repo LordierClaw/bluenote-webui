@@ -1189,6 +1189,10 @@ describe("client scaffolding", () => {
     await userEvent.click(title)
     await userEvent.keyboard("{Control>}s{/Control}")
     await waitFor(() => expect(apiMocks.updateNote).toHaveBeenCalledWith("note-1", { body: "Save from title focus" }))
+
+    await userEvent.click(title)
+    await userEvent.keyboard("{Control>}f{/Control}")
+    expect(await screen.findByPlaceholderText(/find/i)).toHaveFocus()
   })
 
   test("manager rename actions stay local to the targeted note", async () => {

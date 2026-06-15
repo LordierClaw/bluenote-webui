@@ -55,6 +55,7 @@ function compactStatusLabel(dirty: boolean, saveState: string): string {
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
+  if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.readOnly) return false
   const tag = target.tagName.toLowerCase()
   return target.isContentEditable || tag === "input" || tag === "select" || tag === "textarea"
 }
