@@ -614,6 +614,22 @@ export function FolderManager({
             </div>
           )}
         </div>
+      ) : explorerParent && isNoteSpace(explorerParent) ? (
+        <div className="manager-context-bar" role="toolbar" aria-label={`manager actions for ${explorerParent.split("/").filter(Boolean).at(-1) ?? explorerParent} folder`}>
+          <div className="manager-context-actions">
+            <button
+              type="button"
+              className="manager-ctx-btn"
+              onClick={() => onRenameFolder?.(explorerParent)}
+              aria-label="Rename folder"
+              title="Rename folder"
+              disabled={!onRenameFolder}
+            >
+              <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+              <span>Rename Folder</span>
+            </button>
+          </div>
+        </div>
       ) : null}
     </section>
   )

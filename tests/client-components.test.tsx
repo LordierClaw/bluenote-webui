@@ -743,6 +743,25 @@ describe("client scaffolding", () => {
     expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
   })
 
+  test("folder manager exposes actions for the scoped current folder", async () => {
+    const onRenameFolder = vi.fn()
+    render(<FolderManager
+      currentFolder="note/projects"
+      selectedKey=""
+      folders={[{ relativePath: "note", name: "note", noteCount: 1 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      notes={[]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={() => undefined}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    const actionBar = within(manager).getByRole("toolbar", { name: /manager actions for projects folder/i })
+    await userEvent.click(within(actionBar).getByRole("button", { name: /rename folder/i }))
+    expect(onRenameFolder).toHaveBeenCalledWith("note/projects")
+  })
+
   test("folder manager keeps parent navigation visible from nested active folders", async () => {
     const onOpenFolder = vi.fn()
     render(<FolderManager
@@ -945,6 +964,27 @@ describe("client scaffolding", () => {
 
     await userEvent.keyboard("{Control>}k{/Control}")
     expect(await screen.findByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
+  })
+
+  test("command palette input does not leak editing shortcuts to the app shell", async () => {
+    const { textarea } = await renderAppWithStartupNote()
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, "Palette draft")
+    apiMocks.updateNote.mockClear()
+
+    await userEvent.keyboard("{Control>}k{/Control}")
+    const paletteInput = await screen.findByRole("textbox", { name: /search everything/i })
+    await userEvent.type(paletteInput, "alpha")
+
+    await userEvent.keyboard("{Control>}s{/Control}")
+    await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")
+    await userEvent.keyboard("{F2}")
+    await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}")
+
+    expect(apiMocks.updateNote).not.toHaveBeenCalled()
+    expect(screen.queryByRole("dialog", { name: /move note/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: /rename note/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
   })
 
   test("editor textarea keeps advertised move and rename shortcuts active", async () => {
