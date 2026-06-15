@@ -68,7 +68,7 @@ function folderMatchesQueryOrHasDescendants(
 ): boolean {
   if (!query.trim()) return true
   const q = query.trim().toLowerCase()
-  if (folder.name.toLowerCase().includes(q)) return true
+  if (`${folder.name} ${folder.relativePath}`.toLowerCase().includes(q)) return true
 
   const folderPath = normalized(folder.relativePath)
   const matchingNotes = allNotes.filter((n) => {

@@ -551,6 +551,30 @@ describe("client scaffolding", () => {
     expect(onQuery).toHaveBeenCalledWith("")
   })
 
+  test("folder manager matches folder paths while filtering", () => {
+    render(
+      <FolderManager
+        currentFolder="note"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 0 },
+          { relativePath: "note/projects", name: "projects", noteCount: 0 },
+          { relativePath: "note/projects/client", name: "client", noteCount: 0 },
+        ]}
+        notes={[]}
+        query="note/projects/client"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /folder client/i })).toBeInTheDocument()
+  })
+
   test("folder manager expands matching descendant notes while filtering collapsed folders", () => {
     render(
       <FolderManager
@@ -1055,6 +1079,9 @@ describe("client scaffolding", () => {
     await userEvent.keyboard("{Control>}k{/Control}")
     const paletteInput = await screen.findByRole("textbox", { name: /search everything/i })
     await userEvent.type(paletteInput, "alpha")
+
+    await userEvent.keyboard("{Control>}k{/Control}")
+    expect(screen.getByRole("dialog", { name: /search and commands/i })).toBeInTheDocument()
 
     await userEvent.keyboard("{Control>}s{/Control}")
     await userEvent.keyboard("{Control>}{Shift>}m{/Shift}{/Control}")

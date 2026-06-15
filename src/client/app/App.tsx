@@ -369,13 +369,13 @@ export function App() {
       }
       if (actionBox) return
 
+      if (editableTarget && !editorTextareaTarget) return
+
       if ((commandKey && key === "k") || (event.altKey && key === "p")) {
         event.preventDefault()
         setPalette((prev) => !prev)
         return
       }
-
-      if (editableTarget && !editorTextareaTarget) return
 
       if (commandKey && key === "s" && event.shiftKey) {
         if (selectedNote?.folder === "draft") {
