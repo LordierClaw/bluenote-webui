@@ -126,7 +126,9 @@ function TreeFolder({
   useEffect(() => {
     if (selectedKey) {
       const selected = allNotes.find(n => n.key === selectedKey)
-      if (selected && (selected.folder === folder.relativePath || selected.folder.startsWith(folder.relativePath + "/"))) {
+      const selectedParent = selected ? parentOf(selected.relativePath) : ""
+      const folderPath = normalized(folder.relativePath)
+      if (selected && (selectedParent === folderPath || selectedParent.startsWith(folderPath + "/"))) {
         setOpen(true)
       }
     }

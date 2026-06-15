@@ -868,7 +868,12 @@ describe("client scaffolding", () => {
     await waitFor(() => expect(screen.getByLabelText(/note body/i)).toHaveValue("Alpha body"))
 
     const projectsFolderRow = (await screen.findByRole("button", { name: /folder projects/i })).parentElement!
-    await userEvent.click(within(projectsFolderRow).getByRole("button", { name: /expand folder/i }))
+    const expandProjects = within(projectsFolderRow).queryByRole("button", { name: /expand folder/i })
+    if (expandProjects) {
+      await userEvent.click(expandProjects)
+    } else {
+      expect(within(projectsFolderRow).getByRole("button", { name: /collapse folder/i })).toBeInTheDocument()
+    }
 
     await userEvent.click(await screen.findByRole("button", { name: /normal note beta/i }))
     const actionBar = await screen.findByRole("toolbar", { name: /manager actions for beta/i })
