@@ -141,6 +141,13 @@ describe("visual CSS layout contracts", () => {
     expect(themeCss).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.pane-divider \{\s*display:\s*none;?[\s\S]*\}/s)
   })
 
+  test("manager dropdown remains below action dialog backdrops", () => {
+    const menuZ = themeCss.match(/\.manager-dropdown-menu\s*\{[\s\S]*?z-index:\s*(\d+)\s*;/)?.[1]
+    const backdropZ = declarationFor(".action-backdrop", "z-index")
+    expect(menuZ, "Expected .manager-dropdown-menu to define z-index").toBeDefined()
+    expect(Number(menuZ)).toBeLessThan(Number(backdropZ))
+  })
+
   test("editor canvas remains dominant", () => {
     expect(
       declarationFor(".editor-pane", "grid-template-rows"),

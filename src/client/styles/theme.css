@@ -2380,7 +2380,7 @@ button.danger:hover:not(:disabled) { background: rgba(147, 0, 10, 0.6); }
   position: absolute;
   top: 100%;
   right: 0;
-  z-index: 100;
+  z-index: 20;
   background: var(--surface-low);
   border: 1px solid var(--outline-variant);
   border-radius: 2px;
