@@ -333,7 +333,7 @@ export function FolderManager({
     
     for (const f of folders) {
       const fPath = normalized(f.relativePath)
-      const isDescendant = parent === "" || fPath === parent || fPath.startsWith(parent + "/")
+      const isDescendant = parent === "" || fPath.startsWith(parent + "/")
       if (isDescendant && `${f.name} ${f.relativePath}`.toLowerCase().includes(q)) count++
     }
     for (const n of notes) {

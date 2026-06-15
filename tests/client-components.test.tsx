@@ -576,6 +576,29 @@ describe("client scaffolding", () => {
     expect(within(manager).getAllByText(/1 match/i).length).toBeGreaterThan(0)
   })
 
+  test("folder manager search count excludes the current scoped folder", () => {
+    render(
+      <FolderManager
+        currentFolder="note/projects"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 0 },
+          { relativePath: "note/projects", name: "projects", noteCount: 0 },
+        ]}
+        notes={[]}
+        query="projects"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByText(/no matches/i)).toBeInTheDocument()
+    expect(within(manager).queryByText(/1 match/i)).not.toBeInTheDocument()
+  })
+
   test("folder manager expands matching descendant notes while filtering collapsed folders", () => {
     render(
       <FolderManager
