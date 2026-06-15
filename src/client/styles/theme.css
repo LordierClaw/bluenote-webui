@@ -1685,9 +1685,7 @@ div.command-palette-shell .action-box-body {
   .main-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
-  /* On mobile, editor is the primary pane */
-  .folder-manager { display: none; }
-  .preview-pane { display: none; }
+  .pane-divider { display: none; }
   .editor-textarea, .editor-underlay { padding: 16px; }
 }
 

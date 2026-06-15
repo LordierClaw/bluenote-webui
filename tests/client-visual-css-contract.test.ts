@@ -134,6 +134,11 @@ describe("visual CSS layout contracts", () => {
     expect(themeCss).not.toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.preview-pane \{\s*display:\s*none\s*!important;/s)
   })
 
+  test("mobile controls can reveal rendered manager and preview panes", () => {
+    expect(themeCss).not.toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.(?:folder-manager|preview-pane) \{\s*display:\s*none;?[\s\S]*\}/s)
+    expect(themeCss).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.pane-divider \{\s*display:\s*none;?[\s\S]*\}/s)
+  })
+
   test("editor canvas remains dominant", () => {
     expect(
       declarationFor(".editor-pane", "grid-template-rows"),
