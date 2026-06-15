@@ -419,8 +419,6 @@ describe("client scaffolding", () => {
 
     const manager = screen.getByRole("region", { name: /note navigation/i })
     const explorer = within(manager).getByRole("list", { name: /explorer items/i })
-    const rows = within(explorer).getAllByRole("listitem")
-
     expect(within(manager).queryByRole("heading", { name: /folders/i })).not.toBeInTheDocument()
     expect(within(manager).queryByRole("heading", { name: /notes in this folder/i })).not.toBeInTheDocument()
     

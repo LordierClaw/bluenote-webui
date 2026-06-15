@@ -14,10 +14,6 @@ function parentOf(relativePath: string): string {
   return parts.slice(0, -1).join("/")
 }
 
-function nameOf(relativePath: string): string {
-  return relativePath.split("/").filter(Boolean).at(-1) ?? relativePath
-}
-
 function isNoteSpace(relativePath: string): boolean {
   const current = normalized(relativePath)
   return current === "" || current === "note" || current.startsWith("note/")
@@ -37,16 +33,6 @@ function filterNotes(notes: NoteListItem[], query: string): NoteListItem[] {
   if (!query.trim()) return notes
   const q = query.trim().toLowerCase()
   return notes.filter((n) => `${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q))
-}
-
-function filterFolders(folders: FolderView[], query: string): FolderView[] {
-  if (!query.trim()) return folders
-  const q = query.trim().toLowerCase()
-  return folders.filter((f) => `${f.name} ${f.relativePath}`.toLowerCase().includes(q))
-}
-
-function noteKindLabel(note: NoteListItem): string {
-  return note.folder === "draft" ? "Draft" : "Note"
 }
 
 type FolderManagerProps = {
@@ -341,7 +327,7 @@ export function FolderManager({
       if (isDescendant && `${n.title} ${n.description} ${n.relativePath}`.toLowerCase().includes(q)) count++
     }
     return count
-  }, [folders, notes, currentFolder, activeSearch, query])
+  }, [folders, notes, activeSearch, query])
 
   return (
     <section className="folder-manager" aria-label="Note navigation">

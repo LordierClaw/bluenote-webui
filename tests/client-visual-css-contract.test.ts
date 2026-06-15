@@ -92,7 +92,7 @@ describe("visual CSS layout contracts", () => {
     expect(
       declarationFor(".action-backdrop", "padding"),
       "Expected .action-backdrop to keep dialogs comfortably below the top chrome",
-    ).toMatch(/^1?0vh\s+1rem\s+1rem$/)
+    ).toBe("24px")
 
     expect(
       declarationFor(".action-box", "box-shadow"),

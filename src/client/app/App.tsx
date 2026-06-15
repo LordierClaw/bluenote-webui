@@ -614,7 +614,7 @@ export function App() {
   }, selectedNote)
 
   // Pane resize must be before any early returns (React rules of hooks)
-  const resize = usePaneResize(panes.managerVisible, panes.previewVisible)
+  const resize = usePaneResize()
 
   if (workspaceState.loading) return <main className="setup-screen"><p>Loading…</p></main>
   if (!workspaceState.workspace?.initialized) return <SetupScreen defaultRootPath={workspaceState.workspace?.defaultRootPath} error={workspaceState.error} onSubmit={workspaceState.open} />

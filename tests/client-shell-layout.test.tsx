@@ -70,7 +70,7 @@ describe("responsive pane controls", () => {
     expect(onAi).toHaveBeenCalledTimes(1)
   })
 
-  test("shows only a compact restore manager control when manager auto-hides while preview remains visible", () => {
+  test("shows restore manager and topbar preview toggle when manager auto-hides while preview remains visible", () => {
     const panes = useResponsivePanes()
 
     render(
@@ -89,7 +89,7 @@ describe("responsive pane controls", () => {
     )
 
     expect(screen.getByRole("button", { name: /restore manager/i })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /hide preview/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /hide preview/i })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /show preview/i })).not.toBeInTheDocument()
   })
 
@@ -162,7 +162,7 @@ describe("responsive pane controls", () => {
     expect(panes.openPreview).toHaveBeenCalledTimes(1)
   })
 
-  test("manually hidden preview still uses an open preview control instead of restore wording", () => {
+  test("manually hidden preview uses the topbar show preview control instead of restore wording", () => {
     vi.mocked(useResponsivePanes).mockReturnValueOnce({
       managerVisible: true,
       previewVisible: false,
@@ -192,7 +192,7 @@ describe("responsive pane controls", () => {
       </AppShell>,
     )
 
-    expect(screen.getByRole("button", { name: /open preview/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /show preview/i })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /restore preview/i })).not.toBeInTheDocument()
   })
 

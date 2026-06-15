@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, useEffect } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { NoteDetailView } from "../../shared/types"
 
 type EditorPaneProps = {
@@ -60,8 +60,6 @@ export function EditorPane({
   saveState,
   onBodyChange,
   onSave,
-  previewVisible,
-  onTogglePreview,
 }: EditorPaneProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const underlayRef = useRef<HTMLDivElement | null>(null)
@@ -88,6 +86,26 @@ export function EditorPane({
     }
     return results
   }, [body, findQuery])
+
+  const jumpToMatch = useCallback((index: number) => {
+    if (matches.length === 0) return
+    const safeIndex = Math.min(Math.max(index, 0), matches.length - 1)
+    setCurrentMatchIndex(safeIndex)
+    const match = matches[safeIndex]
+    const ta = textareaRef.current
+    if (ta) {
+      ta.setSelectionRange(match.start, match.end)
+      setCursor(measureCursor(body, match.start, match.end - match.start))
+    }
+  }, [body, matches])
+
+  const nextMatch = useCallback(() => {
+    jumpToMatch((currentMatchIndex + 1) % matches.length)
+  }, [currentMatchIndex, jumpToMatch, matches.length])
+
+  const prevMatch = useCallback(() => {
+    jumpToMatch((currentMatchIndex - 1 + matches.length) % matches.length)
+  }, [currentMatchIndex, jumpToMatch, matches.length])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -119,19 +137,7 @@ export function EditorPane({
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [note, showFindReplace, matches, currentMatchIndex]) // Needs these deps for nextMatch/prevMatch
-
-  function jumpToMatch(index: number) {
-    if (matches.length === 0) return
-    const safeIndex = Math.min(Math.max(index, 0), matches.length - 1)
-    setCurrentMatchIndex(safeIndex)
-    const match = matches[safeIndex]
-    const ta = textareaRef.current
-    if (ta) {
-      ta.setSelectionRange(match.start, match.end)
-      setCursor(measureCursor(body, match.start, match.end - match.start))
-    }
-  }
+  }, [note, showFindReplace, nextMatch, prevMatch])
 
   // Scroll to active match when it changes
   useEffect(() => {
@@ -159,13 +165,6 @@ export function EditorPane({
     }
   }, [currentMatchIndex, matches, showFindReplace])
 
-  function nextMatch() {
-    jumpToMatch((currentMatchIndex + 1) % matches.length)
-  }
-
-  function prevMatch() {
-    jumpToMatch((currentMatchIndex - 1 + matches.length) % matches.length)
-  }
 
   function replaceMatch() {
     if (matches.length === 0) return

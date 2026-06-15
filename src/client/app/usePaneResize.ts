@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 
 const MANAGER_WIDTH_KEY = "bluenote-webui.manager-width"
 const PREVIEW_WIDTH_KEY = "bluenote-webui.preview-width"
 const DEFAULT_MANAGER_WIDTH = 300
-const DEFAULT_PREVIEW_FLEX = 1  // fraction of remaining space
 const MIN_PANE_WIDTH = 180
 
 function readWidth(key: string, fallback: number): number {
@@ -26,10 +25,7 @@ export interface PaneWidths {
 }
 
 /** Returns stable callbacks to start drag-resize on each divider */
-export function usePaneResize(
-  managerVisible: boolean,
-  previewVisible: boolean,
-): PaneWidths & {
+export function usePaneResize(): PaneWidths & {
   onManagerDividerMouseDown: (e: React.MouseEvent) => void
   onPreviewDividerMouseDown: (e: React.MouseEvent) => void
 } {
