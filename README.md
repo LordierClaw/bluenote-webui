@@ -37,7 +37,7 @@ npm link
 bluenote doctor
 ```
 
-If your shell cannot find `bluenote-webui` after `npm link`, make sure your npm global command directory is on `PATH`. See the distribution README for bash, fish, cmd.exe, and PowerShell PATH examples.
+If your shell cannot find `bluenote-webui` after `npm link`, make sure your npm global command directory is on `PATH`. For a persistent setup, add it to your shell profile or user PATH. See the distribution README for bash, fish, cmd.exe, and PowerShell PATH examples.
 
 If you are actively changing `../bluenote-core`, run `npm ci --include=dev && npm run check` there before checking this client. Normal source-link app setup does not require globally linking the core library.
 
