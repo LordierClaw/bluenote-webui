@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { ActionDialog } from "./ActionDialog"
 
-type SettingsSection = "general" | "editor" | "ai"
+type SettingsSection = "general" | "editor"
 
 type SettingsModalProps = {
   open: boolean
@@ -13,7 +13,6 @@ type SettingsModalProps = {
 const NAV_ITEMS: { id: SettingsSection; label: string; icon: string }[] = [
   { id: "general", label: "General", icon: "tune" },
   { id: "editor", label: "Editor", icon: "edit_document" },
-  { id: "ai", label: "AI Integration", icon: "smart_toy" },
 ]
 
 export function SettingsModal({ open, onClose, theme, onThemeChange }: SettingsModalProps) {
@@ -21,9 +20,6 @@ export function SettingsModal({ open, onClose, theme, onThemeChange }: SettingsM
   const [fontSize, setFontSize] = useState("14")
   const [lineHeight, setLineHeight] = useState("1.6")
   const [autosave, setAutosave] = useState(true)
-  const [aiProvider, setAiProvider] = useState("openai")
-  const [aiModel, setAiModel] = useState("gpt-4o")
-  const [showApiKey, setShowApiKey] = useState(false)
 
   return (
     <ActionDialog open={open} title="Settings" onClose={onClose} className="settings-modal-dialog">
@@ -154,101 +150,6 @@ export function SettingsModal({ open, onClose, theme, onThemeChange }: SettingsM
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* AI section */}
-          {activeSection === "ai" && (
-            <div className="settings-section">
-              <div className="settings-section-header">
-                <h2>AI Integration</h2>
-                <p>Connect external Language Models to enhance your writing experience.</p>
-              </div>
-
-              {/* Provider */}
-              <div className="settings-field">
-                <label className="label-caps" htmlFor="setting-ai-provider">Provider</label>
-                <div style={{ position: "relative" }}>
-                  <select
-                    id="setting-ai-provider"
-                    value={aiProvider}
-                    onChange={(e) => setAiProvider(e.target.value)}
-                    style={{ appearance: "none", paddingRight: "32px" }}
-                  >
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="google">Google Gemini</option>
-                    <option value="local">Local (Ollama)</option>
-                  </select>
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--on-surface-variant)", fontSize: "18px" }}
-                    aria-hidden="true"
-                  >expand_more</span>
-                </div>
-              </div>
-
-              {/* Model */}
-              <div className="settings-field">
-                <label className="label-caps" htmlFor="setting-ai-model">Model Architecture</label>
-                <div style={{ position: "relative" }}>
-                  <select
-                    id="setting-ai-model"
-                    value={aiModel}
-                    onChange={(e) => setAiModel(e.target.value)}
-                    style={{ appearance: "none", paddingRight: "32px" }}
-                  >
-                    <option value="gpt-4o">gpt-4o</option>
-                    <option value="gpt-4-turbo">gpt-4-turbo</option>
-                    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                    <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
-                  </select>
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--on-surface-variant)", fontSize: "18px" }}
-                    aria-hidden="true"
-                  >expand_more</span>
-                </div>
-              </div>
-
-              {/* API Key */}
-              <div className="settings-field">
-                <label className="label-caps" htmlFor="setting-api-key">API Key</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    id="setting-api-key"
-                    type={showApiKey ? "text" : "password"}
-                    placeholder="sk-..."
-                    style={{ paddingRight: "40px" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey((v) => !v)}
-                    aria-label={showApiKey ? "Hide API key" : "Show API key"}
-                    style={{
-                      position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
-                      border: "none", background: "transparent", color: "var(--on-surface-variant)",
-                      cursor: "pointer", padding: "0", display: "flex", alignItems: "center"
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: "18px" }} aria-hidden="true">
-                      {showApiKey ? "visibility_off" : "visibility"}
-                    </span>
-                  </button>
-                </div>
-                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--on-surface-variant)" }}>
-                  Keys are stored locally and never transmitted to external servers.
-                </p>
-              </div>
-
-              {/* Test Connection */}
-              <button
-                type="button"
-                style={{ width: "100%", justifyContent: "center", marginTop: "4px" }}
-              >
-                <span className="material-symbols-outlined icon-sm" aria-hidden="true">sync</span>
-                Test Connection
-              </button>
             </div>
           )}
         </main>

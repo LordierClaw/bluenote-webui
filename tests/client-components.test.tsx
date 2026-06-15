@@ -11,6 +11,7 @@ import { PreviewPane } from "../src/client/components/PreviewPane"
 import { ActionDialog } from "../src/client/components/ActionDialog"
 import { AppShell } from "../src/client/components/AppShell"
 import { AiWorkspaceDialog } from "../src/client/components/AiWorkspaceDialog"
+import { SettingsModal } from "../src/client/components/SettingsModal"
 import { ShellActionBar } from "../src/client/components/ShellActionBar"
 import { App, isEditableTarget } from "../src/client/app/App"
 import { createNavigationHistory, noteFolderFromRelativePath } from "../src/client/app/navigationHistory"
@@ -183,6 +184,16 @@ describe("client scaffolding", () => {
     const aiButton = screen.getByRole("button", { name: /open ai status and configuration/i })
     expect(aiButton).toHaveTextContent(/^ai/i)
     expect(aiButton).toHaveTextContent(/1 running/i)
+  })
+
+  test("settings modal leaves AI configuration in the dedicated AI workspace dialog", () => {
+    render(<SettingsModal open onClose={() => undefined} theme="dark" onThemeChange={() => undefined} />)
+
+    const dialog = screen.getByRole("dialog", { name: /settings/i })
+    expect(within(dialog).getByRole("button", { name: /general/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("button", { name: /editor/i })).toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /ai integration/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /test connection/i })).not.toBeInTheDocument()
   })
 
   test("theme preference persists and updates the document theme", async () => {
