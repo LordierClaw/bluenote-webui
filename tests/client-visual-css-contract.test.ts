@@ -129,6 +129,10 @@ describe("visual CSS layout contracts", () => {
     expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-workspace \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
   })
 
+  test("tablet manager layout keeps divider columns aligned with rendered children", () => {
+    expect(themeCss).toMatch(/@media \(max-width: 1023px\) \{[\s\S]*\.main-grid\.manager-visible \{[\s\S]*grid-template-columns:\s*var\(--sidebar-w\)\s+4px\s+minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.main-grid\.manager-hidden \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.pane-divider--preview \{\s*display:\s*none\s*!important;/s)
+  })
+
   test("editor canvas remains dominant", () => {
     expect(
       declarationFor(".editor-pane", "grid-template-rows"),

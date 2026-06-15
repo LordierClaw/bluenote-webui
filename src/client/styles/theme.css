@@ -1692,10 +1692,14 @@ div.command-palette-shell .action-box-body {
 }
 
 @media (max-width: 1023px) {
-  .main-grid:not(.manager-hidden) {
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr) !important;
+  .main-grid.manager-visible {
+    grid-template-columns: var(--sidebar-w) 4px minmax(0, 1fr) !important;
+  }
+  .main-grid.manager-hidden {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
   .preview-pane { display: none !important; }
+  .pane-divider--preview { display: none !important; }
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {

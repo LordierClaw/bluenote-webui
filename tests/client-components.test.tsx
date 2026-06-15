@@ -190,8 +190,11 @@ describe("client scaffolding", () => {
     render(<SettingsModal open onClose={() => undefined} theme="dark" onThemeChange={() => undefined} />)
 
     const dialog = screen.getByRole("dialog", { name: /settings/i })
-    expect(within(dialog).getByRole("button", { name: /general/i })).toBeInTheDocument()
-    expect(within(dialog).getByRole("button", { name: /editor/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("heading", { name: /general/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("radio", { name: /dark theme/i })).toBeInTheDocument()
+    expect(within(dialog).getByRole("radio", { name: /light theme/i })).toBeInTheDocument()
+    expect(within(dialog).queryByRole("radio", { name: /system theme/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /editor/i })).not.toBeInTheDocument()
     expect(within(dialog).queryByRole("button", { name: /ai integration/i })).not.toBeInTheDocument()
     expect(within(dialog).queryByRole("button", { name: /test connection/i })).not.toBeInTheDocument()
   })
