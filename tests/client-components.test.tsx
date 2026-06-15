@@ -1106,8 +1106,10 @@ describe("client scaffolding", () => {
 
     const saveEvent = new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true })
     const historyEvent = new KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true, cancelable: true })
+    const findEvent = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true })
     expect(window.dispatchEvent(saveEvent)).toBe(false)
     expect(window.dispatchEvent(historyEvent)).toBe(false)
+    expect(window.dispatchEvent(findEvent)).toBe(false)
     await userEvent.keyboard("{Control>}s{/Control}")
     await userEvent.keyboard("{Control>}k{/Control}")
     await userEvent.keyboard("{Alt>}p{/Alt}")
@@ -1116,6 +1118,7 @@ describe("client scaffolding", () => {
 
     expect(saveEvent.defaultPrevented).toBe(true)
     expect(historyEvent.defaultPrevented).toBe(true)
+    expect(findEvent.defaultPrevented).toBe(true)
     expect(apiMocks.updateNote).not.toHaveBeenCalled()
     expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument()
     expect(screen.queryByRole("dialog", { name: /search and commands/i })).not.toBeInTheDocument()

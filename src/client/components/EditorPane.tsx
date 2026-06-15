@@ -116,8 +116,15 @@ export function EditorPane({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!note) return
+      const shortcutKey = e.key.toLowerCase()
+      const commandKey = e.ctrlKey || e.metaKey
+      const modalOpen = document.querySelector('[role="dialog"]') !== null
+      if (modalOpen && ((commandKey && (shortcutKey === "f" || shortcutKey === "g")) || e.key === "F3")) {
+        e.preventDefault()
+        return
+      }
       // Ctrl+F or Cmd+F
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      if (commandKey && shortcutKey === "f") {
         if (isEditableElement(e.target) && e.target !== textareaRef.current) return
         e.preventDefault()
         setShowFindReplace(true)
@@ -131,7 +138,7 @@ export function EditorPane({
       }
       
       // F3 or Ctrl+G / Cmd+G for Find Next/Prev
-      const isG = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g"
+      const isG = commandKey && shortcutKey === "g"
       const isF3 = e.key === "F3"
       if ((isG || isF3) && showFindReplace) {
         e.preventDefault()
