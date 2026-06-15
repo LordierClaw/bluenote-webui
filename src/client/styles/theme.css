@@ -1690,15 +1690,6 @@ div.command-palette-shell .action-box-body {
   .editor-textarea, .editor-underlay { padding: 16px; }
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
-  .main-grid.manager-visible.preview-hidden {
-    grid-template-columns: var(--sidebar-w) 4px minmax(0, 1fr) !important;
-  }
-  .main-grid.manager-hidden.preview-hidden {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-}
-
 @media (min-width: 1024px) and (max-width: 1279px) {
   :root { --sidebar-w: 240px; }
 }

@@ -131,8 +131,8 @@ describe("visual CSS layout contracts", () => {
     expect(themeCss).toMatch(/@media \(max-width: 920px\) \{[\s\S]*\.topbar \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;[\s\S]*\.topbar-workspace \{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*\.main-grid\.manager-hidden\.preview-visible \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.[0-9]+fr\)\s+minmax\((?:260|280|300)px,\s*0\.[0-9]+fr\);/s)
   })
 
-  test("tablet manager layout overrides only hidden-preview grids", () => {
-    expect(themeCss).toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.main-grid\.manager-visible\.preview-hidden \{[\s\S]*grid-template-columns:\s*var\(--sidebar-w\)\s+4px\s+minmax\(0,\s*1fr\)\s*!important;[\s\S]*\.main-grid\.manager-hidden\.preview-hidden \{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;/s)
+  test("tablet manager layout does not override resizable grid columns", () => {
+    expect(themeCss).not.toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.main-grid[^}]*\{[\s\S]*grid-template-columns:[\s\S]*!important;/s)
     expect(themeCss).not.toMatch(/@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*\.preview-pane \{\s*display:\s*none\s*!important;/s)
   })
 
