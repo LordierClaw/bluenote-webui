@@ -181,6 +181,17 @@ function TreeFolder({
           <span className="tree-row__label">{folder.name}</span>
           {folder.noteCount > 0 && <span className="tree-row__count">{folder.noteCount}</span>}
         </button>
+        {onRenameFolder ? (
+          <button
+            type="button"
+            className="tree-row__action"
+            aria-label={`Rename ${folder.name} folder`}
+            title={`Rename ${folder.name}`}
+            onClick={() => onRenameFolder(folder.relativePath)}
+          >
+            <span className="material-symbols-outlined icon-sm" aria-hidden="true">edit</span>
+          </button>
+        ) : null}
       </div>
 
       {/* Children */}
@@ -387,6 +398,7 @@ export function FolderManager({
               type="button"
               className="manager-dropdown-item"
               role="menuitem"
+              disabled={!isNoteSpace(currentFolder)}
               onClick={() => { setNewDropdownOpen(false); onCreateFolder() }}
             >
               <span className="material-symbols-outlined icon-sm" aria-hidden="true">create_new_folder</span>

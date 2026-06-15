@@ -600,6 +600,8 @@ describe("client scaffolding", () => {
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /config/i }))
     expect(within(dialog).getByRole("combobox", { name: /provider/i })).toHaveValue("codex")
+    await userEvent.click(within(dialog).getByRole("button", { name: /save configuration/i }))
+    expect(onSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ provider: "codex", model: "gpt-5-codex" }))
 
     await userEvent.click(within(dialog).getByRole("tab", { name: /queue/i }))
     expect(within(dialog).getByRole("list", { name: /ai queued jobs/i })).toBeInTheDocument()
@@ -658,6 +660,32 @@ describe("client scaffolding", () => {
     await userEvent.click(within(manager).getByRole("button", { name: /go forward/i }))
     expect(onNavigateBack).toHaveBeenCalledTimes(1)
     expect(onNavigateForward).toHaveBeenCalledTimes(1)
+  })
+
+  test("folder manager disables folder creation outside note space and exposes folder rename", async () => {
+    const onCreateFolder = vi.fn()
+    const onRenameFolder = vi.fn()
+
+    render(<FolderManager
+      currentFolder="draft"
+      selectedKey=""
+      folders={[{ relativePath: "draft", name: "draft", noteCount: 0 }, { relativePath: "note/projects", name: "projects", noteCount: 1 }]}
+      notes={[]}
+      onOpenFolder={() => undefined}
+      onSelectNote={() => undefined}
+      onCreateFolder={onCreateFolder}
+      onRenameFolder={onRenameFolder}
+    />)
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    await userEvent.click(within(manager).getByRole("button", { name: /new note or folder/i }))
+    const newFolder = within(manager).getByRole("menuitem", { name: /new folder/i })
+    expect(newFolder).toBeDisabled()
+    await userEvent.click(newFolder)
+    expect(onCreateFolder).not.toHaveBeenCalled()
+
+    await userEvent.click(within(manager).getByRole("button", { name: /rename draft folder/i }))
+    expect(onRenameFolder).toHaveBeenCalledWith("draft")
   })
 
   test("navigation history derives note folders from startup note relative paths", () => {

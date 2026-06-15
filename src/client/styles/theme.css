@@ -2279,6 +2279,19 @@ button.danger:hover:not(:disabled) { background: rgba(147, 0, 10, 0.6); }
 }
 .tree-toggle--leaf { cursor: default; opacity: 0; }
 .tree-toggle .material-symbols-outlined { font-size: 14px; }
+.tree-row__action {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--on-surface-variant);
+}
+.tree-row__action:hover { color: var(--on-surface); background: var(--surface-high); }
 
 .tree-row__icon {
   font-size: 15px !important;

@@ -331,6 +331,22 @@ export function AiWorkspaceDialog({
                       </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => void run(async () => {
+                      await onSaveConfig({
+                        version: 1, enabled, provider: "codex",
+                        model, maxAttempts: Number(maxAttempts) || 3, outputLanguage,
+                        logging: config?.logging ?? { usage: true, conversations: false, results: true },
+                      })
+                      setNotice("Configuration saved.")
+                    })}
+                    style={{ marginTop: "12px", width: "100%", justifyContent: "center" }}
+                  >
+                    <span className="material-symbols-outlined icon-sm" aria-hidden="true">save</span>
+                    Save Configuration
+                  </button>
                 </div>
               )}
             </div>
