@@ -145,6 +145,7 @@ function TreeFolder({
   }, [childFolders, allFolders, allNotes, query])
 
   const hasChildren = childFolders.length > 0 || allNotes.some((n) => parentOf(n.relativePath) === normalized(folder.relativePath))
+  const expanded = open || Boolean(query.trim())
   const indent = depth * 12
 
   return (
@@ -155,12 +156,12 @@ function TreeFolder({
           type="button"
           className={`tree-toggle${hasChildren ? "" : " tree-toggle--leaf"}`}
           onClick={() => hasChildren && setOpen((v) => !v)}
-          aria-label={open ? "Collapse folder" : "Expand folder"}
+          aria-label={expanded ? "Collapse folder" : "Expand folder"}
           tabIndex={-1}
         >
           {hasChildren ? (
             <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: "14px" }}>
-              {open ? "expand_more" : "chevron_right"}
+              {expanded ? "expand_more" : "chevron_right"}
             </span>
           ) : (
             <span style={{ width: "14px", display: "inline-block" }} />
@@ -195,7 +196,7 @@ function TreeFolder({
       </div>
 
       {/* Children */}
-      {open && (
+      {expanded && (
         <div className="tree-children">
           {filteredChildFolders.map((child) => (
             <TreeFolder

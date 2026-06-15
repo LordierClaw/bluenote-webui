@@ -559,6 +559,31 @@ describe("client scaffolding", () => {
     expect(onQuery).toHaveBeenCalledWith("")
   })
 
+  test("folder manager expands matching descendant notes while filtering collapsed folders", () => {
+    render(
+      <FolderManager
+        currentFolder="note"
+        selectedKey=""
+        folders={[
+          { relativePath: "note", name: "note", noteCount: 1 },
+          { relativePath: "note/projects", name: "projects", noteCount: 1 },
+        ]}
+        notes={[
+          { key: "nested", title: "Quarterly plan", description: "Nested only", relativePath: "note/projects/quarterly.md", folder: "note" },
+        ]}
+        query="quarterly"
+        onQuery={() => undefined}
+        onOpenFolder={() => undefined}
+        onSelectNote={() => undefined}
+        onCreateFolder={() => undefined}
+      />,
+    )
+
+    const manager = screen.getByRole("region", { name: /note navigation/i })
+    expect(within(manager).getByRole("button", { name: /folder projects/i })).toBeInTheDocument()
+    expect(within(manager).getByRole("button", { name: /normal note quarterly plan/i })).toBeInTheDocument()
+  })
+
   test("shell action bar is no longer used as an editor management surface", () => {
     render(
       <ShellActionBar
