@@ -21,6 +21,10 @@ import { SettingsModal } from "../components/SettingsModal"
 
 type ActionBox = "new-note" | "new-folder" | "save-draft-as" | "move-note" | "rename-note" | "rename-folder" | "archive-note" | "delete-note" | null
 type NoteManagerAction = Extract<ActionBox, "save-draft-as" | "move-note" | "rename-note" | "archive-note" | "delete-note">
+type AiIdleContext = "editor" | "manager"
+
+const EDITOR_AI_IDLE_DELAY_MS = 10_000
+const MANAGER_AI_IDLE_DELAY_MS = 5_000
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -108,6 +112,9 @@ export function App() {
   const selectedKeyRef = useRef<string | null>(null)
   const submittingActionRef = useRef(false)
   const startupLoadedRef = useRef(false)
+  const pendingSavedNoteAiRef = useRef<Map<string, { context: AiIdleContext; timer: ReturnType<typeof setTimeout> }>>(new Map())
+  const aiQueueProcessingRef = useRef<Promise<void> | null>(null)
+  const aiQueueFollowUpDrainRef = useRef(false)
   const navigationHistoryRef = useRef(createNavigationHistory(""))
   const [, setHistoryVersion] = useState(0)
 
@@ -159,6 +166,77 @@ export function App() {
     setCodexAuth(nextCodexAuth)
   }, [])
 
+  const clearPendingSavedNoteAiTimer = useCallback(() => {
+    for (const pending of pendingSavedNoteAiRef.current.values()) {
+      clearTimeout(pending.timer)
+    }
+    pendingSavedNoteAiRef.current.clear()
+  }, [])
+
+  const startBackgroundAiDrain = useCallback(() => {
+    if (aiQueueProcessingRef.current) {
+      aiQueueFollowUpDrainRef.current = true
+      return
+    }
+    const drain = (async () => {
+      try {
+        do {
+          aiQueueFollowUpDrainRef.current = false
+          await api.aiProcessQueue()
+          await Promise.all([refreshAiData(), refreshWorkspaceData()])
+        } while (aiQueueFollowUpDrainRef.current)
+      } catch {
+        await Promise.all([refreshAiData(), refreshWorkspaceData()]).catch(() => undefined)
+      } finally {
+        aiQueueProcessingRef.current = null
+        if (aiQueueFollowUpDrainRef.current) startBackgroundAiDrain()
+      }
+    })()
+    aiQueueProcessingRef.current = drain
+  }, [refreshAiData, refreshWorkspaceData])
+
+  const enqueueSavedNoteAi = useCallback(async (selector: string): Promise<boolean> => {
+    try {
+      await api.aiQueueDescribe({ selector })
+      await refreshAiData().catch(() => undefined)
+      startBackgroundAiDrain()
+      return true
+    } catch {
+      await refreshAiData().catch(() => undefined)
+      return false
+    }
+  }, [refreshAiData, startBackgroundAiDrain])
+
+  const flushPendingSavedNoteAi = useCallback(async (): Promise<boolean> => {
+    const selectors = Array.from(pendingSavedNoteAiRef.current.keys())
+    if (selectors.length === 0) return true
+    clearPendingSavedNoteAiTimer()
+    const results = await Promise.all(selectors.map((selector) => enqueueSavedNoteAi(selector)))
+    return results.every(Boolean)
+  }, [clearPendingSavedNoteAiTimer, enqueueSavedNoteAi])
+
+  const scheduleSavedNoteAi = useCallback((selector: string, context: AiIdleContext) => {
+    const existing = pendingSavedNoteAiRef.current.get(selector)
+    if (existing) clearTimeout(existing.timer)
+    const delay = context === "manager" ? MANAGER_AI_IDLE_DELAY_MS : EDITOR_AI_IDLE_DELAY_MS
+    const timer = setTimeout(() => {
+      const pending = pendingSavedNoteAiRef.current.get(selector)
+      if (!pending) return
+      pendingSavedNoteAiRef.current.delete(selector)
+      void enqueueSavedNoteAi(selector)
+    }, delay)
+    pendingSavedNoteAiRef.current.set(selector, { context, timer })
+  }, [enqueueSavedNoteAi])
+
+  useEffect(() => {
+    if (workspaceState.workspace?.initialized) return
+    clearPendingSavedNoteAiTimer()
+  }, [clearPendingSavedNoteAiTimer, workspaceState.workspace?.initialized])
+
+  useEffect(() => () => {
+    clearPendingSavedNoteAiTimer()
+  }, [clearPendingSavedNoteAiTimer])
+
   useEffect(() => {
     void refreshWorkspaceData()
   }, [refreshWorkspaceData])
@@ -192,6 +270,7 @@ export function App() {
 
   const selectNote = useCallback(async (id: string, record = true): Promise<boolean> => {
     if (dirtyRef.current && !window.confirm("Discard unsaved changes and switch notes?")) return false
+    if (selectedKeyRef.current && selectedKeyRef.current !== id) await flushPendingSavedNoteAi()
     const note = await api.note(id)
     const nextFolder = noteFolderFromRelativePath(note.relativePath)
     setSelectedNote(note)
@@ -203,10 +282,11 @@ export function App() {
     setSaveState("Loaded")
     if (record) recordNavigation({ folder: nextFolder, noteKey: note.key })
     return true
-  }, [recordNavigation])
+  }, [flushPendingSavedNoteAi, recordNavigation])
 
-  const openFolder = useCallback((nextFolder: string, record = true): boolean => {
+  const openFolder = useCallback(async (nextFolder: string, record = true): Promise<boolean> => {
     if (dirtyRef.current && !window.confirm("Discard unsaved changes and switch folders?")) return false
+    await flushPendingSavedNoteAi()
     setFolder(nextFolder)
     setSelectedNote(null)
     setBody("")
@@ -216,7 +296,7 @@ export function App() {
     setSaveState("Idle")
     if (record) recordNavigation({ folder: nextFolder, noteKey: null })
     return true
-  }, [recordNavigation])
+  }, [flushPendingSavedNoteAi, recordNavigation])
 
   const navigateToHistoryTarget = useCallback(async (target: NavigationTarget): Promise<boolean> => {
     if (target.noteKey) {
@@ -246,6 +326,8 @@ export function App() {
     if (!dirtyRef.current) return true
     const saveKey = selectedNote.key
     const submittedBody = bodyRef.current
+    const savedBodyBefore = selectedNote.body
+    const savedTitleBefore = selectedNote.title
     setSaveState("Saving…")
     try {
       const saved = await api.updateNote(saveKey, { body: submittedBody })
@@ -259,13 +341,14 @@ export function App() {
       setDirty(false)
       dirtyRef.current = false
       setSaveState("Saved")
+      if (submittedBody !== savedBodyBefore || saved.title !== savedTitleBefore) scheduleSavedNoteAi(saveKey, "editor")
       await refreshWorkspaceData()
       return true
     } catch (error) {
       setSaveState(error instanceof Error ? `Save failed: ${error.message}` : "Save failed")
       return false
     }
-  }, [refreshWorkspaceData, selectedNote])
+  }, [refreshWorkspaceData, scheduleSavedNoteAi, selectedNote])
 
   const ensureCleanBeforeMutation = useCallback(async (): Promise<boolean> => {
     if (!selectedNote || !dirtyRef.current) return true
@@ -461,7 +544,7 @@ export function App() {
         const nextPath = `${parent.replace(/\/$/, "")}/${leaf}`
         const created = await api.createFolder(nextPath)
         shouldCloseActionBox = true
-        openFolder(created.relativePath)
+        await openFolder(created.relativePath)
         await refreshWorkspaceData()
         return
       }
@@ -507,6 +590,8 @@ export function App() {
         if (!activeActionNote || !value) return
         const renameKey = activeActionNote.key
         const submittedBody = selectedKeyRef.current === renameKey ? bodyRef.current : activeActionNote.body
+        const savedTitleBefore = activeActionNote.title
+        const savedBodyBefore = activeActionNote.body
         const renamed = await api.updateNote(renameKey, { title: value, body: submittedBody })
         shouldCloseActionBox = true
         if (selectedKeyRef.current === renameKey && bodyRef.current === submittedBody) {
@@ -522,6 +607,7 @@ export function App() {
         } else {
           setSaveState("Renamed; current note changed")
         }
+        if (value !== savedTitleBefore || submittedBody !== savedBodyBefore) scheduleSavedNoteAi(renameKey, "manager")
         await refreshWorkspaceData()
         return
       }
@@ -531,7 +617,7 @@ export function App() {
         const renamedFolder = await api.renameFolder(actionTargetFolder, value)
         shouldCloseActionBox = true
         await refreshWorkspaceData()
-        openFolder(renamedFolder.relativePath)
+        await openFolder(renamedFolder.relativePath)
         return
       }
       if (actionBox === "archive-note") {
@@ -575,7 +661,7 @@ export function App() {
   async function createDraft() {
     if (!await ensureCleanBeforeMutation()) return
     const note = await api.createNote({ type: "draft", body: "" })
-    openFolder("draft")
+    await openFolder("draft")
     await refreshWorkspaceData()
     await selectNote(note.key)
   }
@@ -592,16 +678,23 @@ export function App() {
 
   async function describeCurrentNoteWithAi() {
     if (!selectedNote) {
-      throw new Error("Select a note before running AI describe.")
+      throw new Error("Select a note before queueing AI describe.")
     }
-    await api.aiDescribe({ selector: selectedNote.key })
+    const noteKey = selectedNote.key
+    await api.aiQueueDescribe({ selector: noteKey })
     await Promise.all([refreshWorkspaceData(), refreshAiData()])
-    await selectNote(selectedNote.key, false)
+    if (selectedKeyRef.current === noteKey) {
+      await selectNote(noteKey, false)
+    }
   }
 
   async function processAiQueueFromDialog() {
+    const noteKey = selectedNote?.key ?? null
     const result = await api.aiProcessQueue()
     await Promise.all([refreshWorkspaceData(), refreshAiData()])
+    if (noteKey && selectedKeyRef.current === noteKey) {
+      await selectNote(noteKey, false)
+    }
     return result
   }
 
@@ -726,7 +819,7 @@ export function App() {
         folders={folders}
         onClose={() => setPalette(false)}
         onSelectNote={(id) => void selectNote(id)}
-        onSelectFolder={(relativePath) => { openFolder(relativePath); }}
+        onSelectFolder={(relativePath) => { void openFolder(relativePath); }}
         onSearchNotes={(searchQuery) => api.notes({ folder: "all", query: searchQuery }) as Promise<SearchResultView[]>}
         onLoadNotePreview={(id) => api.note(id)}
       />

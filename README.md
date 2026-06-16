@@ -2,7 +2,7 @@
 
 Local-first web UI for BlueNote. It is a Node 16.14-compatible TypeScript app with a localhost-only server that wraps `@lordierclaw/bluenote-core`; the browser UI talks to that server over HTTP and does not read BlueNote workspaces directly.
 
-`bluenote-webui` is intended to be behaviorally compatible with the main workflows in `LordierClaw/bluenote-term`: setup/open a BlueNote root, browse notes and drafts, edit Markdown bodies, save/autosave, search, use a Search Everything-style command palette, and surface safe AI status.
+`bluenote-webui` is intended to be behaviorally compatible with the main workflows in `LordierClaw/bluenote-term`: setup/open a BlueNote root, browse notes and drafts, edit Markdown bodies, save/autosave, search, use a Search Everything-style command palette, and manage queue-first AI description workflows.
 
 ## Requirements
 
@@ -94,7 +94,7 @@ npm run check      # typecheck + lint + test + build
 - A small server-side save adapter is used because core does not currently expose a high-level body update API; it still uses core repository helpers and preserves plain Markdown notes plus `.data` metadata layout.
 - Workspace selection is process-local to the running local server.
 - Folder management and full find/replace are scaffolded for web UI parity but not complete.
-- AI endpoint is status-only and masks sensitive values; raw API keys, bearer tokens, provider headers, and `.data/ai/codex-auth.json` are never returned.
+- AI setup/config supports OpenAI-compatible providers and Codex through the localhost server and core public APIs. Note-affecting AI is queue-first: save, autosave, and open-note flows enqueue or refresh description work without direct provider calls, while background queue drains generate and apply descriptions. Browser responses mask secrets; raw API keys, bearer tokens, provider headers, and `.data/ai/*` files are never returned or served.
 
 ## Shortcuts
 

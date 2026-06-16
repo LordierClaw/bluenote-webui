@@ -123,7 +123,9 @@ Commands to map to web buttons/shortcuts/palette entries: new note, quick draft,
 - TUI displays AI state as not configured, auth required, connected, running, updated, or error, plus queue counts/failures.
 - Core exposes queue/config/provider helpers. TUI schedules AI describe work after idle/editor-manager transitions and processes the queue in the background.
 - Non-blocking contract: AI setup, queueing, provider calls, and queue processing must not block startup, rendering, typing, navigation, saving, autosave, note switching, or quit.
-- Web UI should initially surface masked/safe AI status only. Do not expose raw provider config, bearer tokens, API keys, or Codex auth JSON to browser responses.
+- Web UI uses the localhost server and core public AI APIs for setup/config, status, queueing, and queue processing. OpenAI-compatible providers and Codex are supported without duplicating provider semantics in the browser.
+- Note-affecting AI is queue-first: save, autosave, idle/open-note transitions, and explicit describe actions enqueue or refresh durable description work and do not call providers directly. Background drains process the queue, generate/apply descriptions, and report safe status/queue results.
+- Do not expose raw provider config, bearer tokens, API keys, provider headers, Codex auth JSON, or `.data/ai/*` files to browser responses; secrets remain local and masked.
 
 ## 8. Web UI mapping
 
@@ -133,20 +135,20 @@ Required initial web UI:
 - Browser app shell with top bar, folder/root sidebar, manager/note list, editor, preview/details pane, command palette.
 - Note listing, filtering/search, open note, create draft/normal note, edit body, save/autosave where practical, delete/archive with confirmation, rebuild.
 - Draft workflow including quick draft and draft-to-normal promotion if core API is available.
-- AI status/queue surface if safe via core, without exposing secrets.
+- AI setup/config, status, queue, and non-blocking queue processing via core, without exposing secrets.
 
 Deferred or scaffolded initially:
 - Full browser equivalent of TUI find/replace.
 - Full move/rename/folder lifecycle if core gaps require filesystem folder adapters.
 - Clipboard-heavy commands beyond browser-safe copy/paste.
-- Advanced AI queue processing controls beyond status unless safe and non-blocking.
+- Advanced AI controls beyond safe setup/config, queue-first description handling, and non-blocking background drains.
 - Exact TUI startup latest-opened behavior if it requires TUI-only state; document any initial web difference.
 
 Browser-specific design needed:
 - Filesystem root selection is a server-side local path flow, not direct browser workspace access.
 - Autosave must account for HTTP failures and retain unsaved editor state client-side.
 - Keyboard shortcuts must avoid surprising overrides of browser-native shortcuts.
-- Local server must bind to localhost and never serve hidden `.data` files directly.
+- Local server must bind to localhost and never serve hidden `.data` files directly, including `.data/ai/*`.
 
 ## 9. Risks
 
@@ -154,4 +156,4 @@ Browser-specific design needed:
 - Local server access: must bind to localhost by default, avoid arbitrary static file serving from workspace, validate path inputs, and keep `.data` private.
 - Node 18 compatibility: frontend/server dependencies must support Node 18; avoid Node 20-only APIs.
 - Core API gaps: folder creation/listing, latest-opened startup state, and some TUI-specific AI orchestration may not be fully represented in the high-level `createBlueNoteCore` API. Any small adapter must be isolated and documented.
-- AI secret handling: browser responses must mask config and never expose `.data/ai/codex-auth.json`, bearer tokens, API keys, or provider headers.
+- AI secret handling: browser responses must mask config and never expose `.data/ai/*`, bearer tokens, API keys, provider headers, or Codex auth JSON.

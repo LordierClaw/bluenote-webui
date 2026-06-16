@@ -93,6 +93,32 @@ describe("responsive pane controls", () => {
     expect(screen.queryByRole("button", { name: /show preview/i })).not.toBeInTheDocument()
   })
 
+  test("topbar AI status safely summarizes queue and auth states", () => {
+    const panes = useResponsivePanes()
+    const baseProps = {
+      workspace: { initialized: true, rootPath: "/tmp/demo", noteCount: 3 },
+      noteCount: 3,
+      theme: "dark" as const,
+      panes,
+      onToggleTheme: () => undefined,
+      onPalette: () => undefined,
+      onAi: () => undefined,
+      children: <div>content</div>,
+    }
+
+    const { rerender } = render(<AppShell {...baseProps} aiStatus={{ status: "connected", queue: { pending: 4, running: 0, failed: 0 } }} />)
+    expect(screen.getByRole("button", { name: /current: 4 queued/i })).toHaveTextContent("AI: 4 queued")
+
+    rerender(<AppShell {...baseProps} aiStatus={{ status: "connected", queue: { pending: 4, running: 1, failed: 0 } }} />)
+    expect(screen.getByRole("button", { name: /current: 1 running/i })).toHaveTextContent("AI: 1 running")
+
+    rerender(<AppShell {...baseProps} aiStatus={{ status: "connected", queue: { pending: 0, running: 0, failed: 2 } }} />)
+    expect(screen.getByRole("button", { name: /current: 2 failed/i })).toHaveTextContent("AI: 2 failed")
+
+    rerender(<AppShell {...baseProps} aiStatus={{ status: "auth-required", queue: { pending: 0, running: 0, failed: 0 } }} />)
+    expect(screen.getByRole("button", { name: /current: auth required/i })).toHaveTextContent("AI: Auth required")
+  })
+
   test("manager restore control can reveal the manager when it starts auto-hidden", () => {
     vi.mocked(useResponsivePanes).mockReturnValueOnce({
       managerVisible: false,

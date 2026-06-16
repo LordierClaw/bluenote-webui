@@ -5,9 +5,11 @@ import type {
   AiQueueJobView,
   AiQueueView,
   AiStatusSummary,
+  CodexAuthPollView,
   CodexAuthStartView,
   CodexAuthStatusView,
 } from "../../shared/types"
+import { api } from "../app/api"
 import { ActionDialog } from "./ActionDialog"
 
 type AiWorkspaceDialogProps = {
@@ -54,6 +56,13 @@ function statusTone(status: AiStatusSummary | null): string {
   return "idle"
 }
 
+function setupBlockedNotice(status: AiStatusSummary | null): string | null {
+  if (!status) return null
+  if (status.status === "auth-required") return status.message ?? "Authentication required before queued AI jobs can run."
+  if (status.status === "not-configured") return status.message ?? "Configure AI before queued jobs can run."
+  return null
+}
+
 function summarizeQueueJobs(queue: AiQueueView | null) {
   return (queue?.jobs ?? []).reduce((s, job) => {
     if (job.status === "running") s.running += 1
@@ -86,13 +95,15 @@ export function AiWorkspaceDialog({
   const [model, setModel] = useState("")
   const [maxAttempts, setMaxAttempts] = useState("3")
   const [outputLanguage, setOutputLanguage] = useState("English")
-  const [deviceCode, setDeviceCode] = useState("")
+  const [codexFlow, setCodexFlow] = useState<CodexAuthStartView | null>(null)
+  const [authPolling, setAuthPolling] = useState(false)
   const [notice, setNotice] = useState("")
   const [busy, setBusy] = useState(false)
 
   const queueSummary = useMemo(() => summarizeQueueJobs(queue), [queue])
   const combinedQueue = status?.queue ?? queueSummary
   const jobs: AiQueueJobView[] = queue?.jobs ?? []
+  const blockedNotice = setupBlockedNotice(status)
 
   useEffect(() => {
     if (!config) return
@@ -108,6 +119,51 @@ export function AiWorkspaceDialog({
   useEffect(() => {
     if (open) { setTab("status"); setNotice("") }
   }, [open])
+
+  useEffect(() => {
+    if (!open) {
+      setAuthPolling(false)
+      setCodexFlow(null)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !codexFlow || !authPolling) return
+    let cancelled = false
+    let timeout: number | undefined
+    const delayMs = Math.max(1, codexFlow.intervalSeconds || 5) * 1000
+
+    async function poll() {
+      try {
+        const result: CodexAuthPollView = await api.pollCodexAuth()
+        if (cancelled) return
+        if (result.state === "authenticated") {
+          setAuthPolling(false)
+          setCodexFlow(null)
+          setNotice("Codex authentication complete.")
+          await onRefresh()
+          return
+        }
+        if (result.state === "expired" || result.state === "invalid" || result.state === "cancelled") {
+          setAuthPolling(false)
+          setNotice(result.message ?? `Codex authentication ${result.state}.`)
+          await onRefresh()
+          return
+        }
+        timeout = window.setTimeout(() => { void poll() }, delayMs)
+      } catch (error) {
+        if (cancelled) return
+        setAuthPolling(false)
+        setNotice(error instanceof Error ? error.message : "Codex authentication polling failed.")
+      }
+    }
+
+    timeout = window.setTimeout(() => { void poll() }, delayMs)
+    return () => {
+      cancelled = true
+      if (timeout !== undefined) window.clearTimeout(timeout)
+    }
+  }, [authPolling, codexFlow, onRefresh, open])
 
   async function run(task: () => Promise<void> | void) {
     setBusy(true)
@@ -177,7 +233,13 @@ export function AiWorkspaceDialog({
               </div>
 
               <div className="ai-status-details-card">
-                {status?.message && (
+                {blockedNotice && (
+                  <div className="ai-status-message-box">
+                    <span className="material-symbols-outlined icon-sm" aria-hidden="true">warning</span>
+                    <p>{blockedNotice}</p>
+                  </div>
+                )}
+                {status?.message && status.message !== blockedNotice && (
                   <div className="ai-status-message-box">
                     <span className="material-symbols-outlined icon-sm" aria-hidden="true">warning</span>
                     <p>{status.message}</p>
@@ -373,10 +435,11 @@ export function AiWorkspaceDialog({
               <div className="ai-queue-toolbar">
                 <button
                   type="button"
+                  aria-label="Queue current note for AI describe"
                   onClick={() => void run(async () => { await onDescribeCurrentNote(); setNotice("Queued AI describe for current note.") })}
                 >
                   <span className="material-symbols-outlined icon-sm" aria-hidden="true">add_task</span>
-                  Queue describe
+                  Queue current note
                 </button>
                 <button
                   type="button"
@@ -384,7 +447,10 @@ export function AiWorkspaceDialog({
                   aria-label="Run queued jobs"
                   onClick={() => void run(async () => {
                     const result = await onProcessQueue()
-                    if (result) setNotice(`Applied ${result.applied}, failed ${result.failed}, remaining ${result.remaining}.`)
+                    if (result) {
+                      const summary = `Applied ${result.applied}, failed ${result.failed}, remaining ${result.remaining}.`
+                      setNotice(result.setupBlocked ? `${summary} Setup blocked: authentication or configuration required.` : summary)
+                    }
                   })}
                 >
                   <span className="material-symbols-outlined icon-sm" aria-hidden="true">play_arrow</span>
@@ -456,15 +522,16 @@ export function AiWorkspaceDialog({
                 </div>
               </div>
 
-              <div className="settings-field">
-                <label className="label-caps" htmlFor="ai-device-code">Device Code (placeholder)</label>
-                <input
-                  id="ai-device-code"
-                  value={deviceCode}
-                  onChange={(e) => setDeviceCode(e.target.value)}
-                  placeholder="Enter code from verification URL..."
-                />
-              </div>
+              {codexFlow ? (
+                <div className="settings-field">
+                  <label className="label-caps">Device Code Flow</label>
+                  <div className="ai-codex-state-pill" style={{ display: "block", lineHeight: "1.6" }}>
+                    <div>Open: <a href={codexFlow.verificationUrl} target="_blank" rel="noreferrer">{codexFlow.verificationUrl}</a></div>
+                    <div>Enter code: <strong>{codexFlow.userCode}</strong></div>
+                    <div style={{ color: "var(--on-surface-variant)" }}>{authPolling ? `Polling every ${codexFlow.intervalSeconds}s…` : "Polling paused."}</div>
+                  </div>
+                </div>
+              ) : null}
 
               <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
                 <button
@@ -474,7 +541,11 @@ export function AiWorkspaceDialog({
                   style={{ flex: 1, justifyContent: "center" }}
                   onClick={() => void run(async () => {
                     const flow = await onStartCodexAuth()
-                    if (flow) setNotice(`Open ${flow.verificationUrl} and enter code: ${flow.userCode}`)
+                    if (flow) {
+                      setCodexFlow(flow)
+                      setAuthPolling(true)
+                      setNotice(`Open ${flow.verificationUrl} and enter code: ${flow.userCode}`)
+                    }
                   })}
                 >
                   <span className="material-symbols-outlined icon-sm" aria-hidden="true">login</span>
@@ -483,7 +554,7 @@ export function AiWorkspaceDialog({
                 <button
                   type="button"
                   style={{ flex: 1, justifyContent: "center" }}
-                  onClick={() => void run(async () => { await onLogoutCodex(); setNotice("Logged out.") })}
+                  onClick={() => void run(async () => { setAuthPolling(false); setCodexFlow(null); await onLogoutCodex(); setNotice("Logged out.") })}
                 >
                   <span className="material-symbols-outlined icon-sm" aria-hidden="true">logout</span>
                   Logout

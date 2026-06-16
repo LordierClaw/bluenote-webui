@@ -80,7 +80,10 @@ AI is secondary and core-faithful.
 Required properties:
 - segmented status / queue / config / auth organization
 - compact dialog with internal scrolling on smaller screens
-- server-side secret handling only
+- setup/config support for OpenAI-compatible providers and Codex through the localhost server and core public APIs
+- queue-first note description handling: save/autosave/open-note flows enqueue or refresh work and never call providers directly
+- background queue drains are the only path that generate/apply AI descriptions
+- server-side secret handling only; browser responses mask secrets and never serve `.data/ai/*`
 - no WebUI-only AI semantics that diverge from actual product behavior
 
 ## Historical-doc rule

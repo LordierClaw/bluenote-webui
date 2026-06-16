@@ -28,6 +28,7 @@ function summarizeAiStatus(aiStatus?: AppShellAiStatus | null): { label: string;
   if (queue?.failed) return { label: `${queue.failed} failed`, tone: "danger" }
   const status = aiStatus.status.trim().toLowerCase()
   if (!status || status === "unknown") return { label: "Unknown", tone: "idle" }
+  if (status === "auth-required") return { label: "Auth required", tone: "warning" }
   if (status === "not-configured") return { label: "Not configured", tone: "idle" }
   if (status.includes("failed")) return { label: aiStatus.status, tone: "danger" }
   if (status.includes("running")) return { label: aiStatus.status, tone: "ready" }
