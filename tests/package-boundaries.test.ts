@@ -3,6 +3,14 @@ import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
+interface PackageJson {
+  name: string
+  bin?: Record<string, string>
+  files?: string[]
+  scripts?: Record<string, string>
+  exports?: Record<string, unknown>
+}
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
 async function collectProductionTsFiles(relativeDir: string): Promise<string[]> {
@@ -37,6 +45,33 @@ function importSpecifiers(source: string): string[] {
 
   return specifiers
 }
+
+describe("package metadata", () => {
+  test("uses the public scoped package name while preserving bin and export contracts", async () => {
+    const pkg = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8")) as PackageJson
+
+    expect(pkg.name).toBe("@lordierclaw/bluenote-webui")
+    expect(pkg.bin?.["bluenote-webui"]).toBe("./bin/bluenote-webui.js")
+    expect(pkg.files).toEqual(expect.arrayContaining(["bin", "dist", "README.md", "LICENSE", "package.json"]))
+    expect(pkg.exports).toEqual(expect.objectContaining({
+      ".": expect.objectContaining({ import: "./dist/src/command.js" }),
+      "./command": expect.objectContaining({ import: "./dist/src/command.js" }),
+      "./server": expect.objectContaining({ import: "./dist/src/server/index.js" }),
+      "./package.json": "./package.json",
+    }))
+    expect(pkg.scripts?.clean).toMatch(/dist/)
+    expect(pkg.scripts?.build).toMatch(/npm run clean/)
+  })
+
+  test("README documents the scoped package name for install and imports", async () => {
+    const readme = await readFile(path.join(repoRoot, "README.md"), "utf8")
+
+    expect(readme).toContain("npm install -g @lordierclaw/bluenote-webui")
+    expect(readme).toContain('from "@lordierclaw/bluenote-webui"')
+    expect(readme).not.toContain("npm install -g bluenote-webui")
+    expect(readme).not.toContain('from "bluenote-webui"')
+  })
+})
 
 describe("package boundary enforcement", () => {
   test("production code does not import sibling package source or dist internals", async () => {

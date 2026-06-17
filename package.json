@@ -1,5 +1,5 @@
 {
-  "name": "bluenote-webui",
+  "name": "@lordierclaw/bluenote-webui",
   "version": "0.1.0",
   "description": "Local web UI for BlueNote.",
   "license": "Apache-2.0",
@@ -36,13 +36,14 @@
   },
   "scripts": {
     "dev": "concurrently -k -n server,client -c blue,cyan \"tsx watch src/server/index.ts\" \"vite --host 127.0.0.1\"",
-    "build": "tsc -p tsconfig.node.json && vite build",
+    "build": "npm run clean && tsc -p tsconfig.node.json && vite build",
     "start": "node dist/src/server/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "lint": "eslint .",
     "test": "NODE_ENV=test vitest run",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.6",

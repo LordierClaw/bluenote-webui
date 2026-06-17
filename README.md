@@ -16,7 +16,7 @@ For the full BlueNote app, install/run the distribution CLI (`@lordierclaw/bluen
 
 ```bash
 npm install -g @lordierclaw/bluenote
-npm install -g bluenote-webui
+npm install -g @lordierclaw/bluenote-webui
 bluenote doctor
 ```
 
@@ -69,7 +69,7 @@ Then open `http://127.0.0.1:4174`.
 Distribution packages can start the WebUI without importing internal files:
 
 ```ts
-import { runWebCommand } from "bluenote-webui"
+import { runWebCommand } from "@lordierclaw/bluenote-webui"
 
 await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
 ```
