@@ -116,10 +116,28 @@ export interface CodexAuthStartView {
   verificationUrl: string
   userCode: string
   intervalSeconds: number
+  state: "pending"
+}
+
+export interface CodexAuthPollView {
+  state: "pending" | "authenticated" | "expired" | "invalid" | "cancelled"
+  message?: string
+  auth?: CodexAuthStatusView
 }
 
 export interface AiDescribeRequest {
   selector: string
+}
+
+export interface AiEnqueueDescribeResult {
+  key: string
+  relativePath: string
+  enqueued: boolean
+  queue: {
+    pending: number
+    running: number
+    failed: number
+  }
 }
 
 export interface AiProcessQueueRequest {
