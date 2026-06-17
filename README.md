@@ -1,33 +1,55 @@
-# bluenote-webui
+# @lordierclaw/bluenote-webui
 
-Local-first web UI for BlueNote. It is a Node 16.14-compatible TypeScript app with a localhost-only server that wraps `@lordierclaw/bluenote-core`; the browser UI talks to that server over HTTP and does not read BlueNote workspaces directly.
+Local-first browser UI for BlueNote. It runs a localhost-only Node server around `@lordierclaw/bluenote-core`; the browser talks to that server over HTTP and does not read BlueNote workspaces directly.
 
-`bluenote-webui` is intended to be behaviorally compatible with the main workflows in `LordierClaw/bluenote-term`: setup/open a BlueNote root, browse notes and drafts, edit Markdown bodies, save/autosave, search, use a Search Everything-style command palette, and manage queue-first AI description workflows.
+## Role in BlueNote
 
-## Requirements
+This repo owns:
 
-- Node `>=16.14 <17` or Node `>=18`
-- npm 8 or newer
-- A sibling checkout of `LordierClaw/bluenote-core` at `../bluenote-core` for local development and CI until the core package is published/tagged with built artifacts.
+- browser UI layout and interaction
+- localhost server/proxy behavior
+- web setup flow
+- WebUI command entrypoint and public command API
+- browser-facing integration for core note/search/storage/AI workflows
 
-## Setup
+It does not own core storage/search/AI semantics, terminal UI behavior, or top-level distribution routing.
 
-For the full BlueNote app, install/run the distribution CLI (`@lordierclaw/bluenote`) and use this package as the optional browser client discovered on `PATH` as `bluenote-webui`:
+## Install
 
-```bash
+For the full BlueNote app, install the distribution CLI first, then install this optional browser client:
+
+```sh
 npm install -g @lordierclaw/bluenote
 npm install -g @lordierclaw/bluenote-webui
 bluenote doctor
 ```
 
-When working from sibling source checkouts, link the distribution CLI first, then link this optional browser client so `bluenote doctor` can discover `bluenote-webui` on `PATH`:
+Start the local daemon through the distribution CLI, then launch the WebUI through the distribution command:
 
-```bash
+```sh
+bluenote daemon start
+bluenote web
+```
+
+The distribution README is the canonical guide for full app install, uninstall, PATH setup, and optional client verification.
+
+## Local development
+
+Expected sibling checkout layout:
+
+```text
+../bluenote-core
+../bluenote-webui
+../bluenote
+```
+
+For source-link app setup:
+
+```sh
 cd ../bluenote
 npm ci --include=dev
 npm run check
 npm link
-bluenote doctor
 
 cd ../bluenote-webui
 npm ci --include=dev
@@ -37,48 +59,30 @@ npm link
 bluenote doctor
 ```
 
-If your shell cannot find `bluenote-webui` after `npm link`, make sure your npm global command directory is on `PATH`. For a persistent setup, add it to your shell profile or user PATH. See the distribution README for bash, fish, cmd.exe, and PowerShell PATH examples.
-
-If you are actively changing `../bluenote-core`, run `npm ci --include=dev && npm run check` there before checking this client. Normal source-link app setup does not require globally linking the core library.
-
 For WebUI-only development:
 
-```bash
-# from ../bluenote-core
+```sh
+cd ../bluenote-core
 npm ci --include=dev
 npm run build
 
-# from bluenote-webui
+cd ../bluenote-webui
 npm ci --include=dev
 npm run dev
 ```
 
-The dev server binds locally. The API defaults to `127.0.0.1:4174`; Vite proxies `/api` to it.
+The dev server binds locally. The API defaults to `127.0.0.1:4174`; Vite proxies `/api` to it. For restricted environments, build once and run the single local server:
 
-For restricted environments, build once and run the single local server; it serves both the API and built UI:
-
-```bash
+```sh
 npm run build
 npm run start
 ```
 
 Then open `http://127.0.0.1:4174`.
 
-## Public command API
-
-Distribution packages can start the WebUI without importing internal files:
-
-```ts
-import { runWebCommand } from "@lordierclaw/bluenote-webui"
-
-await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
-```
-
-`runWebCommand(args)` supports `--host`, `--port`, and `--help`. It uses the same defaults as `npm run start`: `BLUENOTE_WEBUI_HOST` or `127.0.0.1` for host, and `PORT`, `BLUENOTE_WEBUI_PORT`, or `4174` for port.
-
 ## Scripts
 
-```bash
+```sh
 npm run dev        # local API server + Vite UI
 npm run build      # TypeScript server build + Vite client build
 npm run start      # run built local server, serving API and static UI
@@ -88,16 +92,29 @@ npm run test
 npm run check      # typecheck + lint + test + build
 ```
 
-## Current status and limitations
+Distribution packages can start the WebUI without importing internal files:
 
-- Uses `@lordierclaw/bluenote-core` for root init, note create/list/get/delete/archive/promote, rebuild, and search semantics.
-- A small server-side save adapter is used because core does not currently expose a high-level body update API; it still uses core repository helpers and preserves plain Markdown notes plus `.data` metadata layout.
-- Workspace selection is process-local to the running local server.
-- Folder management and full find/replace are scaffolded for web UI parity but not complete.
-- AI setup/config supports OpenAI-compatible providers and Codex through the localhost server and core public APIs. Note-affecting AI is queue-first: save, autosave, and open-note flows enqueue or refresh description work without direct provider calls, while background queue drains generate and apply descriptions. Browser responses mask secrets; raw API keys, bearer tokens, provider headers, and `.data/ai/*` files are never returned or served.
+```ts
+import { runWebCommand } from "@lordierclaw/bluenote-webui"
 
-## Shortcuts
+await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
+```
 
-- `Ctrl+K` / `Cmd+K`: Search Everything / command palette
-- `Ctrl+S` / `Cmd+S`: save current note
-- Palette supports new note, quick draft, save, archive, delete, rebuild, preview toggle, and note search entries.
+## Packaging and versions
+
+The package name is `@lordierclaw/bluenote-webui`. The public executable discovered on `PATH` is `bluenote-webui`.
+
+The package consumes `@lordierclaw/bluenote-core` through public exports. Distribution packages should call the public executable or public command API instead of importing WebUI internals.
+
+## Cross-platform notes
+
+- Runtime target: Node `>=16.14 <17 || >=18`.
+- Tooling uses npm, TypeScript, Vite, and the local server build.
+- Server and browser UI bind to localhost by default.
+- Browser responses must mask secrets; raw API keys, bearer tokens, provider headers, and `.data/ai/*` files are never returned or served.
+
+## Related packages
+
+- `@lordierclaw/bluenote`: official distribution CLI and top-level app command.
+- `@lordierclaw/bluenote-core`: shared headless note/search/storage/AI behavior.
+- `@lordierclaw/bluenote-term`: terminal/TUI client.
