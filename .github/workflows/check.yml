@@ -42,17 +42,6 @@ jobs:
             bluenote-webui/package-lock.json
             bluenote-core/package-lock.json
 
-      - name: Verify sibling core version matches webui dependency
-        shell: bash
-        run: |
-          set -euo pipefail
-          EXPECTED=$(node -p "require('./bluenote-webui/package.json').dependencies['@lordierclaw/bluenote-core']")
-          ACTUAL=$(node -p "require('./bluenote-core/package.json').version")
-          test "$EXPECTED" = "$ACTUAL" || {
-            echo "bluenote-core checkout version $ACTUAL does not match webui dependency $EXPECTED" >&2
-            exit 1
-          }
-
       - name: Build and pack bluenote-core
         working-directory: bluenote-core
         run: |

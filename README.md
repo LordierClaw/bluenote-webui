@@ -104,7 +104,9 @@ await runWebCommand(["--host", "127.0.0.1", "--port", "4174"])
 
 The package name is `@lordierclaw/bluenote-webui`. The public executable discovered on `PATH` is `bluenote-webui`.
 
-The package consumes `@lordierclaw/bluenote-core` through public exports. Distribution packages should call the public executable or public command API instead of importing WebUI internals.
+The package consumes the latest published `@lordierclaw/bluenote-core` through public exports by default. Distribution packages should call the public executable or public command API instead of importing WebUI internals.
+
+Maintainer release flow: publish a GitHub Release for the matching `v*` tag. The release workflow verifies the package first and only then publishes to npm.
 
 ## Cross-platform notes
 
