@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 
 interface PackageJson {
   name: string
+  repository?: { type?: string; url?: string }
   bin?: Record<string, string>
   files?: string[]
   scripts?: Record<string, string>
@@ -51,6 +52,10 @@ describe("package metadata", () => {
     const pkg = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8")) as PackageJson
 
     expect(pkg.name).toBe("@lordierclaw/bluenote-webui")
+    expect(pkg.repository).toEqual({
+      type: "git",
+      url: "https://github.com/LordierClaw/bluenote-webui",
+    })
     expect(pkg.bin?.["bluenote-webui"]).toBe("./bin/bluenote-webui.js")
     expect(pkg.files).toEqual(expect.arrayContaining(["bin", "dist", "README.md", "LICENSE", "package.json"]))
     expect(pkg.exports).toEqual(expect.objectContaining({

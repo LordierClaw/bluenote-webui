@@ -3,6 +3,10 @@
   "version": "0.4.3",
   "description": "Local web UI for BlueNote.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LordierClaw/bluenote-webui"
+  },
   "type": "module",
   "private": false,
   "bin": {
