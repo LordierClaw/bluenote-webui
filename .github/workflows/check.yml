@@ -4,10 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [16.14.2, 18]
     steps:
       - name: Check out bluenote-webui
         uses: actions/checkout@v4
@@ -18,27 +31,42 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: LordierClaw/bluenote-core
-          ref: feat/node-16-14-compat
           path: bluenote-core
 
-      - name: Set up Node 16.14
+      - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 16.14.2
+          node-version: ${{ matrix.node-version }}
           cache: npm
           cache-dependency-path: |
             bluenote-webui/package-lock.json
             bluenote-core/package-lock.json
 
-      - name: Build bluenote-core
+      - name: Verify sibling core version matches webui dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=$(node -p "require('./bluenote-webui/package.json').dependencies['@lordierclaw/bluenote-core']")
+          ACTUAL=$(node -p "require('./bluenote-core/package.json').version")
+          test "$EXPECTED" = "$ACTUAL" || {
+            echo "bluenote-core checkout version $ACTUAL does not match webui dependency $EXPECTED" >&2
+            exit 1
+          }
+
+      - name: Build and pack bluenote-core
         working-directory: bluenote-core
         run: |
           npm ci --include=dev
           npm run build
+          npm pack --json > pack-output.json
 
-      - name: Install web UI dependencies
+      - name: Install web UI dependencies against exact sibling core tarball
         working-directory: bluenote-webui
-        run: npm ci --include=dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORE_TARBALL=$(node -e "const output=require('../bluenote-core/pack-output.json'); const value=Array.isArray(output) ? output[0]?.filename : output?.filename; if (!value) process.exit(1); process.stdout.write(value)")
+          npm install --include=dev "../bluenote-core/${CORE_TARBALL}"
 
       - name: Run web UI check
         working-directory: bluenote-webui
