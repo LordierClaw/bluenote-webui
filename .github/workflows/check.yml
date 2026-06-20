@@ -54,8 +54,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CORE_TARBALL=$(node -e "const output=require('../bluenote-core/pack-output.json'); const value=Array.isArray(output) ? output[0]?.filename : output?.filename; if (!value) process.exit(1); process.stdout.write(value)")
-          npm install --include=dev "../bluenote-core/${CORE_TARBALL}"
+          CORE_TARBALL=$(find ../bluenote-core -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$CORE_TARBALL"
+          npm install --include=dev "$CORE_TARBALL"
 
       - name: Run web UI check
         working-directory: bluenote-webui

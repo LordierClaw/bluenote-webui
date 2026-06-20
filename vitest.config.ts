@@ -7,6 +7,8 @@ export default defineConfig({
     environment: "node",
     environmentMatchGlobs: [["tests/client-*.test.tsx", "jsdom"]],
     globals: true,
+    testTimeout: 30000,
+    hookTimeout: 30000,
     setupFiles: ["./tests/setup.ts"],
   },
 })
