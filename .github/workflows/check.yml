@@ -54,9 +54,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          npm ci --include=dev
           CORE_TARBALL=$(find ../bluenote-core -maxdepth 1 -name '*.tgz' -print -quit)
           test -n "$CORE_TARBALL"
-          npm install --include=dev "$CORE_TARBALL"
+          npm install --include=dev --no-save "$CORE_TARBALL"
 
       - name: Run web UI check
         working-directory: bluenote-webui
