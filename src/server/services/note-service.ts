@@ -112,19 +112,20 @@ export function renameFolder(folderPathInput: unknown, nextName: unknown): { pre
   }
   const relativePath = assertManagedFolderInput(rootPath, folderPathInput)
   const markedAt = new Date().toISOString()
-  const notesBeforeRename = createNoteRepository(rootPath).list().filter((note) =>
-    note.sourcePath === relativePath || note.sourcePath.startsWith(`${relativePath}/`),
-  )
+  const notesBeforeRename = createNoteRepository(rootPath)
+    .list()
+    .filter((note) => note.sourcePath === relativePath || note.sourcePath.startsWith(`${relativePath}/`))
+    .map((note) => ({ note, entityId: getNoteSyncEntityId(rootPath, note) }))
   const result = createNoteRepository(rootPath).renameFolder(relativePath, nextName)
   recordSyncMutationBestEffort(rootPath, {
     folders: [
       { relativePath: result.previousRelativePath, markedAt, dirtyType: "delete" },
       { relativePath: result.relativePath, markedAt },
     ],
-    notes: notesBeforeRename.map((note) => {
+    notes: notesBeforeRename.map(({ note, entityId }) => {
       const nextRelativePath = `${result.relativePath}${note.sourcePath.slice(result.previousRelativePath.length)}`
       return {
-        entityId: getNoteSyncEntityId(rootPath, note),
+        entityId,
         markedAt,
         metadata: {
           key: note.frontmatter.id,

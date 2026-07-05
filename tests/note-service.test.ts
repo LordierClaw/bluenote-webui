@@ -3,7 +3,7 @@ import path from "node:path"
 import { existsSync } from "node:fs"
 import { mkdtemp, mkdir, rm } from "node:fs/promises"
 import { afterEach, describe, expect, test } from "vitest"
-import { createBlueNoteCore, createDirtyRecordRepository, readStateManifest } from "@lordierclaw/bluenote-core"
+import { createBlueNoteCore, createDirtyRecordRepository, createSidecarRepository, readStateManifest } from "@lordierclaw/bluenote-core"
 import { initWorkspace, resetWorkspaceForTests } from "../src/server/services/workspace-service.js"
 import { archiveNote, createFolder, createNote, deleteNote, getNote, getStartupNote, listFolders, listNotes, moveNote, promoteDraft, renameFolder, updateNote } from "../src/server/services/note-service.js"
 
@@ -132,6 +132,7 @@ describe("note service", () => {
 
     const folder = createFolder("note/projects")
     const created = createNote({ type: "normal", title: "Sync Folder Note", body: "inside folder", destinationFolder: folder.relativePath })
+    const syncEntityId = createSidecarRepository(root).read(created.key).noteId
     const updated = updateNote(created.key, { body: "web editor update" })
     const renamed = renameFolder("note/projects", "archive")
 
@@ -142,6 +143,7 @@ describe("note service", () => {
       expect.objectContaining({ entityType: "note", dirtyType: "upsert", metadata: expect.objectContaining({ key: updated.key }) }),
     ]))
     const noteRecord = records.find((record) => record.entityType === "note" && record.metadata?.key === updated.key && record.metadata.previousRelativePath === created.relativePath)
+    expect(noteRecord?.entityId).toBe(syncEntityId)
     expect(noteRecord?.metadata).toMatchObject({
       key: created.key,
       previousRelativePath: created.relativePath,
