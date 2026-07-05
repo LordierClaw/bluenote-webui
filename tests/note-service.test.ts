@@ -3,6 +3,7 @@ import path from "node:path"
 import { existsSync } from "node:fs"
 import { mkdtemp, mkdir, rm } from "node:fs/promises"
 import { afterEach, describe, expect, test } from "vitest"
+import { createBlueNoteCore, createDirtyRecordRepository, readStateManifest } from "@lordierclaw/bluenote-core"
 import { initWorkspace, resetWorkspaceForTests } from "../src/server/services/workspace-service.js"
 import { archiveNote, createFolder, createNote, deleteNote, getNote, getStartupNote, listFolders, listNotes, moveNote, promoteDraft, renameFolder, updateNote } from "../src/server/services/note-service.js"
 
@@ -13,6 +14,20 @@ async function setupRoot() {
   roots.push(root)
   initWorkspace(root)
   return root
+}
+
+function linkSyncClient(root: string) {
+  createBlueNoteCore({ rootPath: root }).sync.link({
+    mode: "seed-empty-server-from-local",
+    serverUrl: "https://sync.example.test/api",
+    workspaceId: "workspace-webui-test",
+  })
+}
+
+function dirtyRecords(root: string) {
+  const manifest = readStateManifest(root)
+  if (!manifest.workspaceId) throw new Error("test workspace missing workspaceId")
+  return createDirtyRecordRepository(root, { role: "client", workspaceId: manifest.workspaceId }).listDirtyRecords()
 }
 
 afterEach(async () => {
@@ -109,5 +124,29 @@ describe("note service", () => {
     const moved = moveNote(created.key, "note")
     expect(moved.relativePath).toMatch(/^note\/folder-note/)
     expect(getNote(created.key).relativePath).toBe(moved.relativePath)
+  })
+
+  test("marks direct WebUI folder and note edits dirty for sync clients", async () => {
+    const root = await setupRoot()
+    linkSyncClient(root)
+
+    const folder = createFolder("note/projects")
+    const created = createNote({ type: "normal", title: "Sync Folder Note", body: "inside folder", destinationFolder: folder.relativePath })
+    const updated = updateNote(created.key, { body: "web editor update" })
+    const renamed = renameFolder("note/projects", "archive")
+
+    const records = dirtyRecords(root)
+    expect(records).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entityType: "folder", entityId: "note/projects", dirtyType: "delete" }),
+      expect.objectContaining({ entityType: "folder", entityId: "note/archive", dirtyType: "upsert" }),
+      expect.objectContaining({ entityType: "note", dirtyType: "upsert", metadata: expect.objectContaining({ key: updated.key }) }),
+    ]))
+    const noteRecord = records.find((record) => record.entityType === "note" && record.metadata?.key === updated.key && record.metadata.previousRelativePath === created.relativePath)
+    expect(noteRecord?.metadata).toMatchObject({
+      key: created.key,
+      previousRelativePath: created.relativePath,
+      relativePath: `${renamed.relativePath}/${path.basename(created.relativePath)}`,
+      description: expect.stringContaining("web editor update"),
+    })
   })
 })

@@ -7,6 +7,8 @@ import {
   createNoteRepository,
   createSidecarRepository,
   createNoteDescription,
+  getNoteSyncEntityId,
+  recordSyncMutationBestEffort,
   selectNote,
 } from "@lordierclaw/bluenote-core"
 
@@ -97,7 +99,9 @@ export function listFolders(): FolderView[] {
 export function createFolder(folderPathInput: unknown): FolderView {
   const rootPath = requireWorkspaceRoot()
   const relativePath = assertManagedFolderInput(rootPath, folderPathInput)
+  const markedAt = new Date().toISOString()
   fs.mkdirSync(assertPathInsideRoot(rootPath, path.join(rootPath, relativePath)), { recursive: true })
+  recordSyncMutationBestEffort(rootPath, { folders: [{ relativePath, markedAt }] })
   return listFolders().find((folder) => folder.relativePath === relativePath) ?? { relativePath, name: folderDisplayName(relativePath), noteCount: 0 }
 }
 
@@ -107,7 +111,31 @@ export function renameFolder(folderPathInput: unknown, nextName: unknown): { pre
     throw new HttpError(400, "invalid_folder_name", "A folder name is required.")
   }
   const relativePath = assertManagedFolderInput(rootPath, folderPathInput)
+  const markedAt = new Date().toISOString()
+  const notesBeforeRename = createNoteRepository(rootPath).list().filter((note) =>
+    note.sourcePath === relativePath || note.sourcePath.startsWith(`${relativePath}/`),
+  )
   const result = createNoteRepository(rootPath).renameFolder(relativePath, nextName)
+  recordSyncMutationBestEffort(rootPath, {
+    folders: [
+      { relativePath: result.previousRelativePath, markedAt, dirtyType: "delete" },
+      { relativePath: result.relativePath, markedAt },
+    ],
+    notes: notesBeforeRename.map((note) => {
+      const nextRelativePath = `${result.relativePath}${note.sourcePath.slice(result.previousRelativePath.length)}`
+      return {
+        entityId: getNoteSyncEntityId(rootPath, note),
+        markedAt,
+        metadata: {
+          key: note.frontmatter.id,
+          previousRelativePath: note.sourcePath,
+          relativePath: nextRelativePath,
+          title: note.frontmatter.title,
+          description: createNoteDescription(note.body),
+        },
+      }
+    }),
+  })
   createBlueNoteCore({ rootPath }).rebuild()
   return result
 }
@@ -176,6 +204,18 @@ export function updateNote(selector: string, request: UpdateNoteRequest): NoteDe
     title,
     body: request.body,
     updatedAt: new Date().toISOString(),
+  })
+  recordSyncMutationBestEffort(rootPath, {
+    notes: [{
+      entityId: getNoteSyncEntityId(rootPath, selected),
+      markedAt: new Date().toISOString(),
+      metadata: {
+        key: selected.frontmatter.id,
+        relativePath: selected.sourcePath,
+        title,
+        description: createNoteDescription(request.body),
+      },
+    }],
   })
   createBlueNoteCore({ rootPath }).rebuild()
   return getNote(selected.frontmatter.id)
